@@ -57,7 +57,9 @@
   }
   .nav button{background:var(--panel-2);border:1px solid var(--line);color:var(--amber-bright);font-size:18px;width:34px;height:34px;border-radius:8px;cursor:pointer;line-height:1;flex:none;}
   .nav button:active{background:var(--ember-glow);}
-  .nav .title{text-align:center; min-width:0;}
+  .nav .title{text-align:center; min-width:0; direction:rtl;} /* .nav itself is direction:ltr (for the
+    prev/next arrow layout) — without this, the title inherits that ltr and garbles mixed
+    digit+Hebrew text like the Gregorian date range shown in Hebrew view. */
   .nav .title .greg{font-family:'Frank Ruhl Libre',serif;font-size:18px;font-weight:700;color:var(--text);}
   .nav .title .heb{font-size:11.5px;color:var(--amber);margin-top:2px;}
   .weekdays{display:grid;grid-template-columns:repeat(7,minmax(0,1fr));gap:3px;margin-bottom:5px;}
@@ -457,17 +459,18 @@ const detailCard = document.getElementById('detailCard');
 
 function toKey(d){ return d.getFullYear()+"-"+String(d.getMonth()+1).padStart(2,'0')+"-"+String(d.getDate()).padStart(2,'0'); }
 
-// U+2066/U+2069 (LRI/PDI): isolate the whole mixed-content range as one opaque
-// left-to-right unit, immune to whatever bidi context surrounds it. A CSS
-// `direction` override alone wasn't enough to keep the two date fragments (each
-// "12 בספטמבר"-style digit+Hebrew-word pair) in the right order around the dash.
-const LRI = '⁦', PDI = '⁩';
+// This mixed digit+Hebrew-word range renders correctly under plain, default
+// RTL — the bug reported earlier came from .title inheriting direction:ltr
+// from its .nav ancestor (fixed via an explicit direction:rtl on .nav .title
+// in the CSS), not from anything missing here. Forcing ltr on this string, or
+// wrapping it in Unicode isolate marks, both actively broke the ordering —
+// confirmed empirically with local screenshots before landing on this fix.
 function gregRangeLabel(a,b){
   const fmt = (d)=> `${d.getDate()} ב${GREG_MONTHS[d.getMonth()]}`;
-  const label = (a.getFullYear()===b.getFullYear())
-    ? `${fmt(a)} – ${fmt(b)} ${a.getFullYear()}`
-    : `${fmt(a)} ${a.getFullYear()} – ${fmt(b)} ${b.getFullYear()}`;
-  return LRI + label + PDI;
+  if(a.getFullYear()===b.getFullYear()){
+    return `${fmt(a)} – ${fmt(b)} ${a.getFullYear()}`;
+  }
+  return `${fmt(a)} ${a.getFullYear()} – ${fmt(b)} ${b.getFullYear()}`;
 }
 // Pure Hebrew-letter range (day/month/year all as gematriya) — no Western digits,
 // so it reads correctly under normal RTL without a direction override.
@@ -548,7 +551,6 @@ function renderHebMonth(){
   const lastGreg = new HDate(numDays, hMonth, hYear).greg();
 
   titlePrimaryEl.textContent = `${hebMonthName(firstHD)} ${gematriya(hYear)}`;
-  // gregRangeLabel() already wraps itself in Unicode isolate marks (LRI/PDI).
   titleSecondaryEl.textContent = gregRangeLabel(firstGreg, lastGreg);
 
   const dayInfo = buildDayInfo(firstGreg, lastGreg);
