@@ -23,8 +23,7 @@
   .wrap{max-width:520px;margin:0 auto;}
   header.top{text-align:center; margin-bottom:14px;}
   header.top h1{font-family:'Frank Ruhl Libre',serif;font-weight:700;font-size:24px;margin:0 0 4px;color:var(--amber-bright);letter-spacing:0.5px;}
-  header.top p{margin:0;font-size:12.5px;color:var(--text-dim);}
-  header.top .loc-link{background:none;border:none;padding:0;font:inherit;cursor:pointer;color:var(--text-dim); text-decoration:underline; text-decoration-color:var(--text-faint);}
+  .loc-link{background:none;border:none;padding:0;font:inherit;cursor:pointer;color:var(--text-dim); text-decoration:underline; text-decoration-color:var(--text-faint);}
 
   .card{background:var(--panel);border:1px solid var(--line);border-radius:10px;padding:12px 8px;margin-bottom:14px;}
 
@@ -102,9 +101,16 @@
   .zman-details{margin-top:10px; border-top:1px solid var(--line); padding-top:8px;}
   .zman-details > summary{font-size:13px; font-weight:500; color:var(--text-dim); padding:2px 0;}
   .zman-details[open] > summary{margin-bottom:2px; color:var(--text);}
+  .zman-loc-row{font-size:12px; color:var(--text-dim); margin-bottom:8px;}
+  .zman-credit{font-size:11px; color:var(--text-faint); line-height:1.7; margin-top:10px; padding-top:8px; border-top:1px solid var(--line);}
+  .zman-credit a{color:var(--amber);}
   .jump-details{margin-bottom:10px;}
-  .jump-details > summary{font-size:12.5px; color:var(--text-dim); padding:4px;}
-  .jump-details[open] > summary{margin-bottom:6px;}
+  .jump-details > summary{
+    font-size:13px; color:var(--amber-bright); font-weight:500; padding:9px 14px;
+    background:var(--panel-2); border:1px solid var(--line); border-radius:8px;
+  }
+  .jump-details > summary::before{content:'📅'; margin-inline-end:6px;}
+  .jump-details[open] > summary{margin-bottom:10px; border-color:rgba(214,154,76,0.45);}
   .day-events{margin-bottom:2px;}
   .events-empty{font-size:13px; color:var(--text-faint); line-height:1.7;}
   .event-item{display:flex; gap:10px; padding:8px 2px; border-bottom:1px solid var(--line);}
@@ -129,7 +135,6 @@
 <div class="wrap">
   <header class="top">
     <h1>לוח שנה עברי · לועזי</h1>
-    <p>זמני היום לפי <span id="locLabel">—</span> · <button class="loc-link" id="locBtn" type="button">שנה מיקום</button></p>
   </header>
 
   <div class="card">
@@ -180,9 +185,8 @@
   </div>
 
   <p class="foot-note">
-    תאריכים עבריים, חגים ופרשת השבוע (לוח ישראל) מחושבים באמצעות ספריית
-    <a href="https://www.hebcal.com" target="_blank" rel="noopener">Hebcal</a>.
-    זמני היום מחושבים אסטרונומית לקואורדינטות שבחרתם (שיטת הגר"א).
+    האתר נוצר ומתוחזק באופן פרטי · ליצירת קשר:
+    <a href="mailto:shlomog12@gmail.com">shlomog12@gmail.com</a>
   </p>
 </div>
 
@@ -587,7 +591,7 @@ function showDetail(dateObj){
   // --- Daily halachic times: shown every day, but collapsed by default so it
   // doesn't bury the events above ---
   const z = getZmanim(dateObj, LOCATION);
-  let zmanHtml = '';
+  let zmanHtml = `<div class="zman-loc-row">זמני היום לפי <span id="locLabel">—</span> · <button class="loc-link" id="locBtn" type="button">שנה מיקום</button></div>`;
   if(isFriday){
     zmanHtml += `<div class="row"><span class="label">הדלקת נרות (משוער, שקיעה פחות 20 ד')</span><span class="val">${fmtTime(z.candleLighting)}</span></div>`;
   }
@@ -599,11 +603,18 @@ function showDetail(dateObj){
     [isSaturday ? 'צאת השבת (הבדלה)' : 'צאת הכוכבים', z.tzeitHakochavim]
   ];
   zmanHtml += rows.map(([label,d])=>`<div class="row"><span class="label">${label}</span><span class="val">${fmtTime(d)}</span></div>`).join('');
+  zmanHtml += `<p class="zman-credit">
+    תאריכים עבריים, חגים ופרשת השבוע (לוח ישראל) מחושבים באמצעות ספריית
+    <a href="https://www.hebcal.com" target="_blank" rel="noopener">Hebcal</a>.
+    זמני היום מחושבים אסטרונומית לקואורדינטות שבחרתם (שיטת הגר"א).
+  </p>`;
   html += `<details class="zman-details"${loadZmanOpen() ? ' open' : ''}><summary>זמני היום</summary>${zmanHtml}</details>`;
 
   detailCard.innerHTML = html;
   const zd = detailCard.querySelector('.zman-details');
   if(zd) zd.addEventListener('toggle', () => saveZmanOpen(zd.open));
+  updateLocLabel();
+  document.getElementById('locBtn').addEventListener('click', openLocDialog);
   syncJumpDefaults(dateObj);
 }
 
@@ -801,7 +812,8 @@ function openLocDialog(){
 locSelect.addEventListener('change', ()=>{
   document.getElementById('customLocRow').hidden = locSelect.value !== 'custom';
 });
-document.getElementById('locBtn').addEventListener('click', openLocDialog);
+// #locBtn lives inside the zman-details block that showDetail() rebuilds on every
+// render, so its click listener is (re-)attached there instead of here once.
 document.getElementById('locCancelBtn').addEventListener('click', ()=> document.getElementById('locDialog').close());
 document.getElementById('locSaveBtn').addEventListener('click', async ()=>{
   let loc;
@@ -829,8 +841,7 @@ document.getElementById('locSaveBtn').addEventListener('click', async ()=>{
 
 /* ---------- boot ---------- */
 updateModeButtons();
-updateLocLabel();
-renderCalendarGrid();
+renderCalendarGrid(); // also creates #locLabel/#locBtn (inside the zman-details it renders) and populates them
 window.addEventListener('load', () => {
   if(window.google && google.accounts) initGoogleAuth();
   else setTimeout(() => { if(window.google && google.accounts) initGoogleAuth(); }, 800);
