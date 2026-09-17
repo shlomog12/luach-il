@@ -453,12 +453,17 @@ const detailCard = document.getElementById('detailCard');
 
 function toKey(d){ return d.getFullYear()+"-"+String(d.getMonth()+1).padStart(2,'0')+"-"+String(d.getDate()).padStart(2,'0'); }
 
+// U+2066/U+2069 (LRI/PDI): isolate the whole mixed-content range as one opaque
+// left-to-right unit, immune to whatever bidi context surrounds it. A CSS
+// `direction` override alone wasn't enough to keep the two date fragments (each
+// "12 בספטמבר"-style digit+Hebrew-word pair) in the right order around the dash.
+const LRI = '⁦', PDI = '⁩';
 function gregRangeLabel(a,b){
   const fmt = (d)=> `${d.getDate()} ב${GREG_MONTHS[d.getMonth()]}`;
-  if(a.getFullYear()===b.getFullYear()){
-    return `${fmt(a)} – ${fmt(b)} ${a.getFullYear()}`;
-  }
-  return `${fmt(a)} ${a.getFullYear()} – ${fmt(b)} ${b.getFullYear()}`;
+  const label = (a.getFullYear()===b.getFullYear())
+    ? `${fmt(a)} – ${fmt(b)} ${a.getFullYear()}`
+    : `${fmt(a)} ${a.getFullYear()} – ${fmt(b)} ${b.getFullYear()}`;
+  return LRI + label + PDI;
 }
 // Pure Hebrew-letter range (day/month/year all as gematriya) — no Western digits,
 // so it reads correctly under normal RTL without a direction override.
@@ -514,7 +519,6 @@ function renderGregMonth(){
   const lastDay = new Date(year, month+1, 0);
   titlePrimaryEl.textContent = `${GREG_MONTHS[month]} ${year}`;
   // Pure Hebrew-letter text — normal RTL rendering, no digit/text bidi mixing.
-  titleSecondaryEl.style.direction = '';
   titleSecondaryEl.textContent = hebRangeLabel(new HDate(firstDay), new HDate(lastDay));
 
   const dayInfo = buildDayInfo(firstDay, lastDay);
@@ -540,9 +544,7 @@ function renderHebMonth(){
   const lastGreg = new HDate(numDays, hMonth, hYear).greg();
 
   titlePrimaryEl.textContent = `${hebMonthName(firstHD)} ${gematriya(hYear)}`;
-  // Mixes Hebrew month names with Western digits and a dash — force ltr so the
-  // bidi algorithm doesn't reorder the two dates relative to each other.
-  titleSecondaryEl.style.direction = 'ltr';
+  // gregRangeLabel() already wraps itself in Unicode isolate marks (LRI/PDI).
   titleSecondaryEl.textContent = gregRangeLabel(firstGreg, lastGreg);
 
   const dayInfo = buildDayInfo(firstGreg, lastGreg);
