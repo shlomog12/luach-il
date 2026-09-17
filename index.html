@@ -362,7 +362,12 @@ function initGoogleAuth(){
     client_id: CLIENT_ID,
     scope: CAL_SCOPE,
     callback: (resp) => {
-      if(resp.error){ document.getElementById('authText').textContent = "ההתחברות נכשלה: " + resp.error; return; }
+      if(resp.error){
+        // Silent refresh failed (e.g. no active Google session in this browser) —
+        // fall back to showing the manual connect button instead of erroring out.
+        setAuthUI(false);
+        return;
+      }
       accessToken = resp.access_token;
       tokenExpiry = Date.now() + (resp.expires_in*1000);
       sessionStorage.setItem('gcal_token', accessToken);
@@ -372,11 +377,17 @@ function initGoogleAuth(){
     }
   });
   document.getElementById('authBtn').addEventListener('click', () => {
-    tokenClient.requestAccessToken({ prompt: (accessToken ? '' : 'consent') });
+    tokenClient.requestAccessToken({ prompt: 'consent' });
   });
   if(accessToken && Date.now() < tokenExpiry){
     setAuthUI(true);
     loadEvents();
+  } else {
+    // Every fresh visit: try to get a token in the background, with no popup.
+    // Works as long as you're still signed into Google in this browser and
+    // already granted access once — so a weekly visit just loads current
+    // events automatically, with no click needed.
+    tokenClient.requestAccessToken({ prompt: '' });
   }
 }
 
