@@ -89,6 +89,20 @@
   .err{color:var(--danger); font-size:12.5px; padding:6px 0;}
 
   .section-title{font-family:'Frank Ruhl Libre',serif;font-size:15px;font-weight:700;color:var(--text);margin:0 0 10px;}
+  details.card > summary, .zman-details > summary{
+    cursor:pointer; list-style:none; display:flex; align-items:center; justify-content:space-between;
+  }
+  details.card > summary::-webkit-details-marker, .zman-details > summary::-webkit-details-marker{display:none;}
+  details.card > summary::after, .zman-details > summary::after{
+    content:'▾'; color:var(--amber); font-size:11px; margin-inline-start:6px; transition:transform .15s;
+  }
+  details.card[open] > summary::after, .zman-details[open] > summary::after{transform:rotate(180deg);}
+  details.card > summary{margin-bottom:0;}
+  details.card[open] > summary{margin-bottom:10px;}
+  .zman-details{margin-top:10px; border-top:1px solid var(--line); padding-top:8px;}
+  .zman-details > summary{font-size:13px; font-weight:500; color:var(--text-dim); padding:2px 0;}
+  .zman-details[open] > summary{margin-bottom:2px; color:var(--text);}
+  .day-events{margin-bottom:2px;}
   .events-empty{font-size:13px; color:var(--text-faint); line-height:1.7;}
   .event-item{display:flex; gap:10px; padding:8px 2px; border-bottom:1px solid var(--line);}
   .event-item:last-child{border-bottom:none;}
@@ -126,12 +140,12 @@
       <button class="mode-btn" id="modeGregBtn" type="button">לועזי</button>
     </div>
     <div class="nav">
-      <button id="prevBtn" aria-label="חודש קודם">‹</button>
+      <button id="prevBtn" aria-label="חודש הבא">‹</button>
       <div class="title">
         <div class="greg" id="titlePrimary">—</div>
         <div class="heb" id="titleSecondary">—</div>
       </div>
-      <button id="nextBtn" aria-label="חודש הבא">›</button>
+      <button id="nextBtn" aria-label="חודש קודם">›</button>
     </div>
     <div class="jump-row" id="jumpRowGreg">
       <input type="date" id="jumpDate" aria-label="עבור לתאריך">
@@ -150,11 +164,11 @@
 
   <div class="card detail" id="detailCard"></div>
 
-  <div class="card">
-    <div class="section-title">אירועים ביומן Google</div>
+  <details class="card">
+    <summary class="section-title">אירועים ביומן Google (60 הימים הקרובים)</summary>
     <div id="eventsBox"><div class="events-empty">התחברו כדי לראות את האירועים שלכם.</div></div>
     <div class="events-note">מציג אירועים מכל היומנים שלכם, 60 הימים הקרובים. הטוקן תקף לכשעה — אם האירועים לא מתעדכנים, לחצו "התחבר" שוב.</div>
-  </div>
+  </details>
 
   <p class="foot-note">
     תאריכים עבריים, חגים ופרשת השבוע (לוח ישראל) מחושבים באמצעות ספריית
@@ -519,22 +533,30 @@ function showDetail(dateObj){
   html += `<div class="dsub">${heDayStr(hd.getDate())} ב${hebMonthName(hd)} ${gematriya(hd.getFullYear())}</div>`;
 
   const info = CURRENT_DAY_INFO.get(key) || {holidays:[], parsha:null};
+  const dayEvents = EVENTS.filter(ev => toKey(ev.date)===key);
+
+  // --- This day's events/holidays: the thing you actually clicked for, always visible ---
+  let eventsHtml = '';
   if(isSaturday && info.parsha){
-    html += `<div class="parsha">פרשת ${info.parsha}</div>`;
+    eventsHtml += `<div class="parsha">פרשת ${info.parsha}</div>`;
   }
   if(info.holidays.length){
-    html += `<div class="holidays">` + info.holidays.map(h=>`<span class="holiday-tag">${h}</span>`).join('') + `</div>`;
+    eventsHtml += `<div class="holidays">` + info.holidays.map(h=>`<span class="holiday-tag">${h}</span>`).join('') + `</div>`;
   }
-
-  const dayEvents = EVENTS.filter(ev => toKey(ev.date)===key);
   if(dayEvents.length){
-    html += `<div class="holidays">` + dayEvents.map(ev=>`<span class="holiday-tag">${ev.allDay?'':fmtTime(ev.date)+' · '}${ev.title}</span>`).join('') + `</div>`;
+    eventsHtml += `<div class="holidays">` + dayEvents.map(ev=>`<span class="holiday-tag">${ev.allDay?'':fmtTime(ev.date)+' · '}${ev.title}</span>`).join('') + `</div>`;
   }
+  if(!eventsHtml){
+    eventsHtml = `<div class="events-empty">אין אירועים או חגים ביום זה.</div>`;
+  }
+  html += `<div class="day-events">${eventsHtml}</div>`;
 
-  // Daily halachic times — shown every day, not only on Shabbat.
+  // --- Daily halachic times: shown every day, but collapsed by default so it
+  // doesn't bury the events above ---
   const z = getZmanim(dateObj, LOCATION);
+  let zmanHtml = '';
   if(isFriday){
-    html += `<div class="row"><span class="label">הדלקת נרות (משוער, שקיעה פחות 20 ד')</span><span class="val">${fmtTime(z.candleLighting)}</span></div>`;
+    zmanHtml += `<div class="row"><span class="label">הדלקת נרות (משוער, שקיעה פחות 20 ד')</span><span class="val">${fmtTime(z.candleLighting)}</span></div>`;
   }
   const rows = [
     ['עלות השחר', z.alotHaShachar], ['הנץ החמה', z.sunrise],
@@ -543,26 +565,30 @@ function showDetail(dateObj){
     ['פלג המנחה', z.plagHaMincha], ['שקיעה', z.sunset],
     [isSaturday ? 'צאת השבת (הבדלה)' : 'צאת הכוכבים', z.tzeitHakochavim]
   ];
-  html += rows.map(([label,d])=>`<div class="row"><span class="label">${label}</span><span class="val">${fmtTime(d)}</span></div>`).join('');
+  zmanHtml += rows.map(([label,d])=>`<div class="row"><span class="label">${label}</span><span class="val">${fmtTime(d)}</span></div>`).join('');
+  html += `<details class="zman-details"><summary>זמני היום</summary>${zmanHtml}</details>`;
+
   detailCard.innerHTML = html;
 }
 
 /* ---------- nav + mode toggle ---------- */
+// Hebrew reading direction: the left-positioned arrow (prevBtn) advances to the
+// NEXT month, the right-positioned arrow (nextBtn) goes to the PREVIOUS one.
 document.getElementById('prevBtn').addEventListener('click', ()=>{
-  if(VIEW_MODE==='heb'){
-    const hd = new HDate(1, hebCursor.month, hebCursor.year).add(-1,'month');
-    hebCursor = {month: hd.getMonth(), year: hd.getFullYear()};
-  } else {
-    current.setMonth(current.getMonth()-1);
-  }
-  renderCalendarGrid();
-});
-document.getElementById('nextBtn').addEventListener('click', ()=>{
   if(VIEW_MODE==='heb'){
     const hd = new HDate(1, hebCursor.month, hebCursor.year).add(1,'month');
     hebCursor = {month: hd.getMonth(), year: hd.getFullYear()};
   } else {
     current.setMonth(current.getMonth()+1);
+  }
+  renderCalendarGrid();
+});
+document.getElementById('nextBtn').addEventListener('click', ()=>{
+  if(VIEW_MODE==='heb'){
+    const hd = new HDate(1, hebCursor.month, hebCursor.year).add(-1,'month');
+    hebCursor = {month: hd.getMonth(), year: hd.getFullYear()};
+  } else {
+    current.setMonth(current.getMonth()-1);
   }
   renderCalendarGrid();
 });
