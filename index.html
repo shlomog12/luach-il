@@ -41,11 +41,11 @@
 
   .nav{display:flex;align-items:center;justify-content:space-between;margin-bottom:10px;padding:0 4px;direction:ltr;}
   .jump-row{display:flex;justify-content:flex-end;flex-wrap:wrap;gap:6px;margin-bottom:8px;padding:0 4px;}
-  .jump-row select, .jump-row input[type="date"], .jump-row input[type="number"]{
+  .jump-row select, .jump-row input[type="number"], .jump-row input[type="text"]{
     background:var(--panel-2);color:var(--text);border:1px solid var(--line);border-radius:8px;
     padding:6px 8px;font-size:12.5px;font-family:inherit;color-scheme:dark;
   }
-  .jump-row input[type="number"]{width:78px;}
+  .jump-row input[type="number"], .jump-row input[type="text"]{width:78px;}
   .nav button{background:var(--panel-2);border:1px solid var(--line);color:var(--amber-bright);font-size:18px;width:34px;height:34px;border-radius:8px;cursor:pointer;line-height:1;flex:none;}
   .nav button:active{background:var(--ember-glow);}
   .nav .title{text-align:center; min-width:0;}
@@ -148,12 +148,15 @@
       <button id="nextBtn" aria-label="חודש קודם">›</button>
     </div>
     <div class="jump-row" id="jumpRowGreg">
-      <input type="date" id="jumpDate" aria-label="עבור לתאריך">
+      <select id="gregJumpDay" aria-label="יום לועזי"></select>
+      <select id="gregJumpMonth" aria-label="חודש לועזי"></select>
+      <input type="number" id="gregJumpYear" aria-label="שנה לועזית">
+      <button class="btn" id="gregJumpBtn" type="button">עבור</button>
     </div>
     <div class="jump-row" id="jumpRowHeb" hidden>
       <select id="hebJumpDay" aria-label="יום עברי"></select>
       <select id="hebJumpMonth" aria-label="חודש עברי"></select>
-      <input type="number" id="hebJumpYear" aria-label="שנה עברית">
+      <input type="text" id="hebJumpYear" aria-label="שנה עברית" placeholder="למשל תשפ״ו">
       <button class="btn" id="hebJumpBtn" type="button">עבור</button>
     </div>
     <div class="weekdays">
@@ -209,6 +212,7 @@ const HebrewCalendar = hebcal.HebrewCalendar;
 const HFLAGS = hebcal.flags;
 const Locale = hebcal.Locale;
 const gematriya = hebcal.gematriya;
+const gematriyaStrToNum = hebcal.gematriyaStrToNum;
 
 function hebMonthName(hd){ return Locale.hebrewStripNikkud(Locale.gettext(hd.getMonthName(), 'he')); }
 function heDayStr(n){ return gematriya(n); }
@@ -628,20 +632,63 @@ function jumpToDate(dateObj){
   }
   renderCalendarGrid();
 }
-document.getElementById('jumpDate').addEventListener('change', (e)=>{
-  const val = e.target.value; // "YYYY-MM-DD"
-  if(!val) return;
-  const [y,m,d] = val.split('-').map(Number);
-  jumpToDate(new Date(y, m-1, d));
+/* ---------- jump to a Gregorian date (day/month/year selects, like the Hebrew one) ---------- */
+const gregJumpDay = document.getElementById('gregJumpDay');
+const gregJumpMonth = document.getElementById('gregJumpMonth');
+const gregJumpYear = document.getElementById('gregJumpYear');
+
+GREG_MONTHS.forEach((name, i)=>{
+  const opt = document.createElement('option');
+  opt.value = String(i+1); opt.textContent = name;
+  gregJumpMonth.appendChild(opt);
+});
+function populateGregJumpDays(){
+  const year = parseInt(gregJumpYear.value, 10) || current.getFullYear();
+  const month = parseInt(gregJumpMonth.value, 10) || 1;
+  const numDays = new Date(year, month, 0).getDate();
+  const prevVal = gregJumpDay.value;
+  gregJumpDay.innerHTML = '';
+  for(let d=1; d<=numDays; d++){
+    const opt = document.createElement('option');
+    opt.value = String(d); opt.textContent = String(d);
+    gregJumpDay.appendChild(opt);
+  }
+  if(prevVal && Number(prevVal)<=numDays) gregJumpDay.value = prevVal;
+}
+gregJumpYear.value = current.getFullYear();
+gregJumpMonth.value = String(current.getMonth()+1);
+populateGregJumpDays();
+gregJumpYear.addEventListener('change', populateGregJumpDays);
+gregJumpMonth.addEventListener('change', populateGregJumpDays);
+document.getElementById('gregJumpBtn').addEventListener('click', ()=>{
+  const year = parseInt(gregJumpYear.value, 10);
+  const month = parseInt(gregJumpMonth.value, 10);
+  const day = parseInt(gregJumpDay.value, 10);
+  if(!year || !month || !day) return;
+  jumpToDate(new Date(year, month-1, day));
 });
 
-/* ---------- jump to a Hebrew date (e.g. ט' תשרי תשצ"א) ---------- */
+/* ---------- jump to a Hebrew date (day/month selects, year typed as letters e.g. תשפ״ו) ---------- */
 const hebJumpDay = document.getElementById('hebJumpDay');
 const hebJumpMonth = document.getElementById('hebJumpMonth');
 const hebJumpYear = document.getElementById('hebJumpYear');
 
+function parseHebYearInput(str){
+  str = (str||'').trim();
+  if(!str) return null;
+  let n;
+  if(/^\d+$/.test(str)){
+    n = parseInt(str, 10);
+  } else {
+    try{ n = gematriyaStrToNum(str); }
+    catch(e){ return null; }
+  }
+  if(!n || !isFinite(n)) return null;
+  if(n < 1000) n += 5000; // standard convention: letters omit the thousands (ה)
+  return n;
+}
 function populateHebJumpDays(){
-  const year = parseInt(hebJumpYear.value, 10) || hebCursor.year;
+  const year = parseHebYearInput(hebJumpYear.value) || hebCursor.year;
   const month = parseInt(hebJumpMonth.value, 10) || 1;
   const numDays = new HDate(1, month, year).daysInMonth();
   const prevVal = hebJumpDay.value;
@@ -654,7 +701,7 @@ function populateHebJumpDays(){
   if(prevVal && Number(prevVal)<=numDays) hebJumpDay.value = prevVal;
 }
 function populateHebJumpMonths(){
-  const year = parseInt(hebJumpYear.value, 10) || hebCursor.year;
+  const year = parseHebYearInput(hebJumpYear.value) || hebCursor.year;
   const numMonths = HDate.monthsInYear(year);
   const prevVal = hebJumpMonth.value;
   hebJumpMonth.innerHTML = '';
@@ -667,15 +714,15 @@ function populateHebJumpMonths(){
   if(prevVal && Number(prevVal)<=numMonths) hebJumpMonth.value = prevVal;
   populateHebJumpDays();
 }
-hebJumpYear.value = hebCursor.year;
+hebJumpYear.value = gematriya(hebCursor.year % 1000);
 populateHebJumpMonths();
 hebJumpYear.addEventListener('change', populateHebJumpMonths);
 hebJumpMonth.addEventListener('change', populateHebJumpDays);
 document.getElementById('hebJumpBtn').addEventListener('click', ()=>{
-  const year = parseInt(hebJumpYear.value, 10);
+  const year = parseHebYearInput(hebJumpYear.value);
   const month = parseInt(hebJumpMonth.value, 10);
   const day = parseInt(hebJumpDay.value, 10);
-  if(!year || !month || !day) return;
+  if(!year || !month || !day){ alert('נא להזין שנה עברית תקינה, למשל תשפ״ו'); return; }
   jumpToDate(new HDate(day, month, year).greg());
 });
 
