@@ -1,0 +1,8 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512">
+  <rect width="512" height="512" rx="96" fill="#141f33"/>
+  <rect x="96" y="140" width="320" height="272" rx="24" fill="#23375a" stroke="#d69a4c" stroke-width="8"/>
+  <rect x="96" y="140" width="320" height="64" rx="24" fill="#3d2b16"/>
+  <circle cx="160" cy="120" r="14" fill="#d69a4c"/>
+  <circle cx="352" cy="120" r="14" fill="#d69a4c"/>
+  <text x="256" y="330" font-family="Georgia, serif" font-size="150" font-weight="700" fill="#f0b968" text-anchor="middle">ל</text>
+</svg>
