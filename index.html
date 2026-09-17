@@ -40,8 +40,12 @@
   .mode-btn.active{background:var(--ember-glow);color:var(--amber-bright);border-color:rgba(214,154,76,0.45);}
 
   .nav{display:flex;align-items:center;justify-content:space-between;margin-bottom:10px;padding:0 4px;direction:ltr;}
-  .jump-row{display:flex;justify-content:flex-end;margin-bottom:8px;padding:0 4px;}
-  .jump-row input[type="date"]{background:var(--panel-2);color:var(--text);border:1px solid var(--line);border-radius:8px;padding:6px 8px;font-size:12.5px;font-family:inherit;color-scheme:dark;}
+  .jump-row{display:flex;justify-content:flex-end;flex-wrap:wrap;gap:6px;margin-bottom:8px;padding:0 4px;}
+  .jump-row select, .jump-row input[type="date"], .jump-row input[type="number"]{
+    background:var(--panel-2);color:var(--text);border:1px solid var(--line);border-radius:8px;
+    padding:6px 8px;font-size:12.5px;font-family:inherit;color-scheme:dark;
+  }
+  .jump-row input[type="number"]{width:78px;}
   .nav button{background:var(--panel-2);border:1px solid var(--line);color:var(--amber-bright);font-size:18px;width:34px;height:34px;border-radius:8px;cursor:pointer;line-height:1;flex:none;}
   .nav button:active{background:var(--ember-glow);}
   .nav .title{text-align:center; min-width:0;}
@@ -129,8 +133,14 @@
       </div>
       <button id="nextBtn" aria-label="חודש הבא">›</button>
     </div>
-    <div class="jump-row">
+    <div class="jump-row" id="jumpRowGreg">
       <input type="date" id="jumpDate" aria-label="עבור לתאריך">
+    </div>
+    <div class="jump-row" id="jumpRowHeb" hidden>
+      <select id="hebJumpDay" aria-label="יום עברי"></select>
+      <select id="hebJumpMonth" aria-label="חודש עברי"></select>
+      <input type="number" id="hebJumpYear" aria-label="שנה עברית">
+      <button class="btn" id="hebJumpBtn" type="button">עבור</button>
     </div>
     <div class="weekdays">
       <div>א</div><div>ב</div><div>ג</div><div>ד</div><div>ה</div><div>ו</div><div class="shab">ש</div>
@@ -268,48 +278,17 @@ function saveMode(m){
   try{ localStorage.setItem('luach_mode', m); }catch(e){}
 }
 
-/* ---------- solar / zmanim calculation ---------- */
-const rad = Math.PI/180;
-const dayMs = 86400000, J1970 = 2440588, J2000 = 2451545, J0 = 0.0009;
-const e = rad*23.4397;
-function toJulian(d){ return d.valueOf()/dayMs - 0.5 + J1970; }
-function fromJulian(j){ return new Date((j+0.5-J1970)*dayMs); }
-function toDays(d){ return toJulian(d)-J2000; }
-function declination(l,b){ return Math.asin(Math.sin(b)*Math.cos(e)+Math.cos(b)*Math.sin(e)*Math.sin(l)); }
-function solarMeanAnomaly(d){ return rad*(357.5291+0.98560028*d); }
-function eclipticLongitude(M){
-  const C = rad*(1.9148*Math.sin(M)+0.02*Math.sin(2*M)+0.0003*Math.sin(3*M));
-  const P = rad*102.9372;
-  return M+C+P+Math.PI;
-}
-function julianCycle(d,lw){ return Math.round(d-J0-lw/(2*Math.PI)); }
-function approxTransit(Ht,lw,n){ return J0+(Ht+lw)/(2*Math.PI)+n; }
-function solarTransitJ(ds,M,L){ return J2000+ds+0.0053*Math.sin(M)-0.0069*Math.sin(2*L); }
-function hourAngle(h,phi,d){ return Math.acos((Math.sin(h)-Math.sin(phi)*Math.sin(d))/(Math.cos(phi)*Math.cos(d))); }
-function getSetJ(h,lw,phi,dec,n,M,L){ const w=hourAngle(h,phi,dec); const a=approxTransit(w,lw,n); return solarTransitJ(a,M,L); }
-
-function sunTimes(date, lat, lng){
-  const lw = rad*-lng, phi = rad*lat, d = toDays(date);
-  const n = julianCycle(d, lw), ds = approxTransit(0, lw, n);
-  const M = solarMeanAnomaly(ds), L = eclipticLongitude(M), dec = declination(L,0);
-  const Jnoon = solarTransitJ(ds, M, L);
-  function angleTime(deg){
-    const h0 = deg*rad;
-    const Jset = getSetJ(h0, lw, phi, dec, n, M, L);
-    const Jrise = Jnoon - (Jset - Jnoon);
-    return { rise: fromJulian(Jrise), set: fromJulian(Jset) };
-  }
-  const std = angleTime(-0.833);
-  const dawn16 = angleTime(-16.1);
-  const dusk85 = angleTime(-8.5);
-  const noon = fromJulian(Jnoon);
-  const netz = std.rise.getTime(), shkia = std.set.getTime();
-  const shaa = (shkia-netz)/12;
+/* ---------- zmanim (via @hebcal/core's Zmanim class — same GR"A-based times
+   yeshiva.org.il and similar sites use, computed locally with no network call) ---------- */
+function getZmanim(dateObj, loc){
+  const location = new hebcal.Location(loc.lat, loc.lon, true, 'Asia/Jerusalem', loc.name, 'IL');
+  const z = new hebcal.Zmanim(location, dateObj, false);
   return {
-    alotHaShachar: dawn16.rise, sunrise: std.rise,
-    sofZmanShma: new Date(netz + 3*shaa), sofZmanTfilla: new Date(netz + 4*shaa),
-    chatzot: noon, minchaGedola: new Date(netz + 6.5*shaa), minchaKetana: new Date(netz + 9.5*shaa),
-    plagHaMincha: new Date(netz + 10.75*shaa), sunset: std.set, tzeitHakochavim: dusk85.set
+    alotHaShachar: z.alotHaShachar(), sunrise: z.neitzHaChama(),
+    sofZmanShma: z.sofZmanShma(), sofZmanTfilla: z.sofZmanTfilla(),
+    chatzot: z.chatzot(), minchaGedola: z.minchaGedola(), minchaKetana: z.minchaKetana(),
+    plagHaMincha: z.plagHaMincha(), sunset: z.shkiah(), tzeitHakochavim: z.tzeit(8.5),
+    candleLighting: z.sunsetOffset(-20, true)
   };
 }
 function fmtTime(d){ return d.toLocaleTimeString('he-IL', {hour:'2-digit', minute:'2-digit'}); }
@@ -552,22 +531,19 @@ function showDetail(dateObj){
     html += `<div class="holidays">` + dayEvents.map(ev=>`<span class="holiday-tag">${ev.allDay?'':fmtTime(ev.date)+' · '}${ev.title}</span>`).join('') + `</div>`;
   }
 
+  // Daily halachic times — shown every day, not only on Shabbat.
+  const z = getZmanim(dateObj, LOCATION);
   if(isFriday){
-    const z = sunTimes(dateObj, LOCATION.lat, LOCATION.lon);
-    const candle = new Date(z.sunset.getTime() - 20*60000);
-    html += `<div class="row"><span class="label">הדלקת נרות (משוער, שקיעה פחות 20 ד')</span><span class="val">${fmtTime(candle)}</span></div>`;
+    html += `<div class="row"><span class="label">הדלקת נרות (משוער, שקיעה פחות 20 ד')</span><span class="val">${fmtTime(z.candleLighting)}</span></div>`;
   }
-  if(isSaturday){
-    const z = sunTimes(dateObj, LOCATION.lat, LOCATION.lon);
-    html += `<div class="row"><span class="label">צאת השבת (הבדלה)</span><span class="val">${fmtTime(z.tzeitHakochavim)}</span></div>`;
-    const rows = [
-      ['עלות השחר', z.alotHaShachar], ['הנץ החמה', z.sunrise],
-      ["סוף זמן ק״ש (גר\"א)", z.sofZmanShma], ["סוף זמן תפילה (גר\"א)", z.sofZmanTfilla],
-      ['חצות היום', z.chatzot], ['מנחה גדולה', z.minchaGedola], ['מנחה קטנה', z.minchaKetana],
-      ['פלג המנחה', z.plagHaMincha], ['שקיעה', z.sunset]
-    ];
-    html += rows.map(([label,d])=>`<div class="row"><span class="label">${label}</span><span class="val">${fmtTime(d)}</span></div>`).join('');
-  }
+  const rows = [
+    ['עלות השחר', z.alotHaShachar], ['הנץ החמה', z.sunrise],
+    ["סוף זמן ק״ש (גר\"א)", z.sofZmanShma], ["סוף זמן תפילה (גר\"א)", z.sofZmanTfilla],
+    ['חצות היום', z.chatzot], ['מנחה גדולה', z.minchaGedola], ['מנחה קטנה', z.minchaKetana],
+    ['פלג המנחה', z.plagHaMincha], ['שקיעה', z.sunset],
+    [isSaturday ? 'צאת השבת (הבדלה)' : 'צאת הכוכבים', z.tzeitHakochavim]
+  ];
+  html += rows.map(([label,d])=>`<div class="row"><span class="label">${label}</span><span class="val">${fmtTime(d)}</span></div>`).join('');
   detailCard.innerHTML = html;
 }
 
@@ -594,6 +570,8 @@ document.getElementById('nextBtn').addEventListener('click', ()=>{
 function updateModeButtons(){
   document.getElementById('modeHebBtn').classList.toggle('active', VIEW_MODE==='heb');
   document.getElementById('modeGregBtn').classList.toggle('active', VIEW_MODE==='greg');
+  document.getElementById('jumpRowGreg').hidden = VIEW_MODE!=='greg';
+  document.getElementById('jumpRowHeb').hidden = VIEW_MODE!=='heb';
 }
 function setViewMode(mode){
   if(mode===VIEW_MODE) return;
@@ -626,6 +604,50 @@ document.getElementById('jumpDate').addEventListener('change', (e)=>{
   if(!val) return;
   const [y,m,d] = val.split('-').map(Number);
   jumpToDate(new Date(y, m-1, d));
+});
+
+/* ---------- jump to a Hebrew date (e.g. ט' תשרי תשצ"א) ---------- */
+const hebJumpDay = document.getElementById('hebJumpDay');
+const hebJumpMonth = document.getElementById('hebJumpMonth');
+const hebJumpYear = document.getElementById('hebJumpYear');
+
+function populateHebJumpDays(){
+  const year = parseInt(hebJumpYear.value, 10) || hebCursor.year;
+  const month = parseInt(hebJumpMonth.value, 10) || 1;
+  const numDays = new HDate(1, month, year).daysInMonth();
+  const prevVal = hebJumpDay.value;
+  hebJumpDay.innerHTML = '';
+  for(let d=1; d<=numDays; d++){
+    const opt = document.createElement('option');
+    opt.value = String(d); opt.textContent = heDayStr(d);
+    hebJumpDay.appendChild(opt);
+  }
+  if(prevVal && Number(prevVal)<=numDays) hebJumpDay.value = prevVal;
+}
+function populateHebJumpMonths(){
+  const year = parseInt(hebJumpYear.value, 10) || hebCursor.year;
+  const numMonths = HDate.monthsInYear(year);
+  const prevVal = hebJumpMonth.value;
+  hebJumpMonth.innerHTML = '';
+  for(let mm=1; mm<=numMonths; mm++){
+    const hd = new HDate(1, mm, year);
+    const opt = document.createElement('option');
+    opt.value = String(mm); opt.textContent = hebMonthName(hd);
+    hebJumpMonth.appendChild(opt);
+  }
+  if(prevVal && Number(prevVal)<=numMonths) hebJumpMonth.value = prevVal;
+  populateHebJumpDays();
+}
+hebJumpYear.value = hebCursor.year;
+populateHebJumpMonths();
+hebJumpYear.addEventListener('change', populateHebJumpMonths);
+hebJumpMonth.addEventListener('change', populateHebJumpDays);
+document.getElementById('hebJumpBtn').addEventListener('click', ()=>{
+  const year = parseInt(hebJumpYear.value, 10);
+  const month = parseInt(hebJumpMonth.value, 10);
+  const day = parseInt(hebJumpDay.value, 10);
+  if(!year || !month || !day) return;
+  jumpToDate(new HDate(day, month, year).greg());
 });
 
 /* ---------- location picker ---------- */
