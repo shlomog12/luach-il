@@ -48,6 +48,9 @@
   .nav{display:flex;align-items:center;justify-content:space-between;margin-bottom:10px;padding:0 4px;direction:ltr;}
   .jump-panel{margin-bottom:10px;}
   .jump-row{display:flex;justify-content:flex-end;flex-wrap:wrap;row-gap:10px;column-gap:8px;padding:0 4px;}
+  .jump-row[hidden]{display:none;} /* our own display:flex above has equal specificity to the
+    browser's built-in [hidden]{display:none} and comes later, so it was winning and showing
+    both the Hebrew and Gregorian jump rows stacked together at once — this rule fixes that. */
   .jump-row select{
     background:var(--panel-2);color:var(--text);border:1px solid var(--line);border-radius:8px;
     padding:6px 8px;font-size:12.5px;font-family:inherit;color-scheme:dark;
@@ -127,6 +130,7 @@
   .dlg-inner{padding:16px;}
   .loc-select{width:100%;background:var(--panel-2);color:var(--text);border:1px solid var(--line);border-radius:8px;padding:9px;font-size:14px;font-family:inherit;margin-bottom:10px;}
   .custom-loc-row{display:flex;flex-direction:column;gap:8px;margin-bottom:10px;}
+  .custom-loc-row[hidden]{display:none;} /* same display-vs-[hidden] specificity issue as .jump-row */
   .custom-loc-row input{background:var(--panel-2);color:var(--text);border:1px solid var(--line);border-radius:8px;padding:8px;font-size:13px;font-family:inherit;width:100%;}
   .dlg-actions{display:flex;justify-content:flex-end;gap:8px;margin-top:4px;}
 </style>
