@@ -326,7 +326,7 @@ function getZmanim(dateObj, loc){
     sofZmanShma: z.sofZmanShma(), sofZmanTfilla: z.sofZmanTfilla(),
     chatzot: z.chatzot(), minchaGedola: z.minchaGedola(), minchaKetana: z.minchaKetana(),
     plagHaMincha: z.plagHaMincha(), sunset: z.shkiah(), tzeitHakochavim: z.tzeit(8.5),
-    candleLighting: z.sunsetOffset(-20, true)
+    candleLighting: z.sunsetOffset(-30, true)
   };
 }
 function fmtTime(d){ return d.toLocaleTimeString('he-IL', {hour:'2-digit', minute:'2-digit'}); }
@@ -593,7 +593,7 @@ function showDetail(dateObj){
   const z = getZmanim(dateObj, LOCATION);
   let zmanHtml = `<div class="zman-loc-row">זמני היום לפי <span id="locLabel">—</span> · <button class="loc-link" id="locBtn" type="button">שנה מיקום</button></div>`;
   if(isFriday){
-    zmanHtml += `<div class="row"><span class="label">הדלקת נרות (משוער, שקיעה פחות 20 ד')</span><span class="val">${fmtTime(z.candleLighting)}</span></div>`;
+    zmanHtml += `<div class="row"><span class="label">הדלקת נרות (משוער, שקיעה פחות 30 ד')</span><span class="val">${fmtTime(z.candleLighting)}</span></div>`;
   }
   const rows = [
     ['עלות השחר', z.alotHaShachar], ['הנץ החמה', z.sunrise],
