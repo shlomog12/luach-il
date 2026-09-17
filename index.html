@@ -38,12 +38,16 @@
   .btn:active{background:var(--ember-glow);}
   .btn-sm{font-size:11px;padding:5px 10px;}
 
-  .mode-toggle{display:flex;gap:6px;margin-bottom:10px;padding:0 4px;}
+  .top-controls{display:flex;gap:6px;margin-bottom:10px;padding:0 4px;}
+  .mode-toggle{display:flex;gap:6px;flex:1;}
   .mode-btn{flex:1;background:var(--panel-2);border:1px solid var(--line);color:var(--text-dim);font-size:13px;padding:8px;border-radius:8px;cursor:pointer;font-family:inherit;}
   .mode-btn.active{background:var(--ember-glow);color:var(--amber-bright);border-color:rgba(214,154,76,0.45);}
+  .jump-toggle-btn{flex:none;width:38px;background:var(--panel-2);border:1px solid var(--line);border-radius:8px;font-size:15px;cursor:pointer;color:var(--amber-bright);}
+  .jump-toggle-btn.active{background:var(--ember-glow);border-color:rgba(214,154,76,0.45);}
 
   .nav{display:flex;align-items:center;justify-content:space-between;margin-bottom:10px;padding:0 4px;direction:ltr;}
-  .jump-row{display:flex;justify-content:flex-end;flex-wrap:wrap;gap:6px;margin-bottom:8px;padding:0 4px;}
+  .jump-panel{margin-bottom:10px;}
+  .jump-row{display:flex;justify-content:flex-end;flex-wrap:wrap;gap:6px;padding:0 4px;}
   .jump-row select{
     background:var(--panel-2);color:var(--text);border:1px solid var(--line);border-radius:8px;
     padding:6px 8px;font-size:12.5px;font-family:inherit;color-scheme:dark;
@@ -91,14 +95,14 @@
   .err{color:var(--danger); font-size:12.5px; padding:6px 0;}
 
   .section-title{font-family:'Frank Ruhl Libre',serif;font-size:15px;font-weight:700;color:var(--text);margin:0 0 10px;}
-  details.card > summary, .zman-details > summary, .jump-details > summary{
+  details.card > summary, .zman-details > summary{
     cursor:pointer; list-style:none; display:flex; align-items:center; justify-content:space-between;
   }
-  details.card > summary::-webkit-details-marker, .zman-details > summary::-webkit-details-marker, .jump-details > summary::-webkit-details-marker{display:none;}
-  details.card > summary::after, .zman-details > summary::after, .jump-details > summary::after{
+  details.card > summary::-webkit-details-marker, .zman-details > summary::-webkit-details-marker{display:none;}
+  details.card > summary::after, .zman-details > summary::after{
     content:'▾'; color:var(--amber); font-size:11px; margin-inline-start:6px; transition:transform .15s;
   }
-  details.card[open] > summary::after, .zman-details[open] > summary::after, .jump-details[open] > summary::after{transform:rotate(180deg);}
+  details.card[open] > summary::after, .zman-details[open] > summary::after{transform:rotate(180deg);}
   details.card > summary{margin-bottom:0;}
   details.card[open] > summary{margin-bottom:10px;}
   .zman-details{margin-top:10px; border-top:1px solid var(--line); padding-top:8px;}
@@ -107,13 +111,6 @@
   .zman-loc-row{font-size:12px; color:var(--text-dim); margin-bottom:8px;}
   .zman-credit{font-size:11px; color:var(--text-faint); line-height:1.7; margin-top:10px; padding-top:8px; border-top:1px solid var(--line);}
   .zman-credit a{color:var(--amber);}
-  .jump-details{margin-bottom:10px;}
-  .jump-details > summary{
-    font-size:13px; color:var(--amber-bright); font-weight:500; padding:9px 14px;
-    background:var(--panel-2); border:1px solid var(--line); border-radius:8px;
-  }
-  .jump-details > summary::before{content:'📅'; margin-inline-end:6px;}
-  .jump-details[open] > summary{margin-bottom:10px; border-color:rgba(214,154,76,0.45);}
   .day-events{margin-bottom:2px;}
   .events-empty{font-size:13px; color:var(--text-faint); line-height:1.7;}
   .event-item{display:flex; gap:10px; padding:8px 2px; border-bottom:1px solid var(--line);}
@@ -141,9 +138,12 @@
   </header>
 
   <div class="card">
-    <div class="mode-toggle">
-      <button class="mode-btn" id="modeHebBtn" type="button">עברי</button>
-      <button class="mode-btn" id="modeGregBtn" type="button">לועזי</button>
+    <div class="top-controls">
+      <div class="mode-toggle">
+        <button class="mode-btn" id="modeHebBtn" type="button">עברי</button>
+        <button class="mode-btn" id="modeGregBtn" type="button">לועזי</button>
+      </div>
+      <button class="jump-toggle-btn" id="jumpToggleBtn" type="button" aria-label="דילוג לתאריך" aria-expanded="false">📅</button>
     </div>
     <div class="nav">
       <button id="prevBtn" aria-label="חודש הבא">‹</button>
@@ -153,8 +153,7 @@
       </div>
       <button id="nextBtn" aria-label="חודש קודם">›</button>
     </div>
-    <details class="jump-details">
-      <summary>דילוג לתאריך</summary>
+    <div class="jump-panel" id="jumpPanel" hidden>
       <div class="jump-row" id="jumpRowGreg">
         <select id="gregJumpDay" aria-label="יום לועזי"></select>
         <select id="gregJumpMonth" aria-label="חודש לועזי"></select>
@@ -167,7 +166,7 @@
         <select id="hebJumpYear" aria-label="שנה עברית"></select>
         <button class="btn" id="hebJumpBtn" type="button">עבור</button>
       </div>
-    </details>
+    </div>
     <div class="weekdays">
       <div>א</div><div>ב</div><div>ג</div><div>ד</div><div>ה</div><div>ו</div><div class="shab">ש</div>
     </div>
@@ -665,8 +664,18 @@ function setViewMode(mode){
 document.getElementById('modeHebBtn').addEventListener('click', ()=>setViewMode('heb'));
 document.getElementById('modeGregBtn').addEventListener('click', ()=>setViewMode('greg'));
 
+const jumpToggleBtn = document.getElementById('jumpToggleBtn');
+const jumpPanel = document.getElementById('jumpPanel');
+function setJumpPanelOpen(open){
+  jumpPanel.hidden = !open;
+  jumpToggleBtn.classList.toggle('active', open);
+  jumpToggleBtn.setAttribute('aria-expanded', String(open));
+}
+jumpToggleBtn.addEventListener('click', ()=> setJumpPanelOpen(jumpPanel.hidden));
+
 function jumpToDate(dateObj){
   selected = dateObj;
+  setJumpPanelOpen(false); // collapse back after a successful jump
   if(VIEW_MODE==='heb'){
     const hd = new HDate(dateObj);
     hebCursor = {month: hd.getMonth(), year: hd.getFullYear()};
