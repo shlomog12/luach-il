@@ -47,7 +47,7 @@
 
   .nav{display:flex;align-items:center;justify-content:space-between;margin-bottom:10px;padding:0 4px;direction:ltr;}
   .jump-panel{margin-bottom:10px;}
-  .jump-row{display:flex;justify-content:flex-end;flex-wrap:wrap;gap:6px;padding:0 4px;}
+  .jump-row{display:flex;justify-content:flex-end;flex-wrap:wrap;row-gap:10px;column-gap:8px;padding:0 4px;}
   .jump-row select{
     background:var(--panel-2);color:var(--text);border:1px solid var(--line);border-radius:8px;
     padding:6px 8px;font-size:12.5px;font-family:inherit;color-scheme:dark;
@@ -650,12 +650,14 @@ function updateModeButtons(){
 }
 function setViewMode(mode){
   if(mode===VIEW_MODE) return;
+  // Anchor the new mode's cursor to the day actually being viewed (`selected`),
+  // not to `current` (which is always the 1st of the Gregorian month) — otherwise
+  // switching modes jumps to the start of the month instead of staying put.
   if(mode==='heb'){
-    const hd = new HDate(current);
+    const hd = new HDate(selected);
     hebCursor = {month: hd.getMonth(), year: hd.getFullYear()};
   } else {
-    const g = new HDate(1, hebCursor.month, hebCursor.year).greg();
-    current = new Date(g.getFullYear(), g.getMonth(), 1);
+    current = new Date(selected.getFullYear(), selected.getMonth(), 1);
   }
   saveMode(mode);
   updateModeButtons();
