@@ -39,7 +39,9 @@
   .mode-btn{flex:1;background:var(--panel-2);border:1px solid var(--line);color:var(--text-dim);font-size:13px;padding:8px;border-radius:8px;cursor:pointer;font-family:inherit;}
   .mode-btn.active{background:var(--ember-glow);color:var(--amber-bright);border-color:rgba(214,154,76,0.45);}
 
-  .nav{display:flex;align-items:center;justify-content:space-between;margin-bottom:10px;padding:0 4px;}
+  .nav{display:flex;align-items:center;justify-content:space-between;margin-bottom:10px;padding:0 4px;direction:ltr;}
+  .jump-row{display:flex;justify-content:flex-end;margin-bottom:8px;padding:0 4px;}
+  .jump-row input[type="date"]{background:var(--panel-2);color:var(--text);border:1px solid var(--line);border-radius:8px;padding:6px 8px;font-size:12.5px;font-family:inherit;color-scheme:dark;}
   .nav button{background:var(--panel-2);border:1px solid var(--line);color:var(--amber-bright);font-size:18px;width:34px;height:34px;border-radius:8px;cursor:pointer;line-height:1;flex:none;}
   .nav button:active{background:var(--ember-glow);}
   .nav .title{text-align:center; min-width:0;}
@@ -50,21 +52,25 @@
   .weekdays div.shab{color:var(--amber);}
   .grid{display:grid;grid-template-columns:repeat(7,minmax(0,1fr));gap:3px;}
   .cell{
-    min-height:46px;
-    display:flex;flex-direction:column;align-items:center;justify-content:center;
+    min-height:78px;
+    display:flex;flex-direction:column;align-items:center;justify-content:flex-start;
     border-radius:7px;background:var(--panel-2);border:1px solid transparent;
-    cursor:pointer;position:relative;padding:3px 1px;overflow:hidden;min-width:0;
+    cursor:pointer;position:relative;padding:5px 2px 4px;overflow:hidden;min-width:0;
   }
   .cell.empty{background:transparent; cursor:default;}
   .cell .g{font-size:13px; font-weight:500; color:var(--text); direction:ltr;}
   .cell .h{font-size:8px; color:var(--text-faint); margin-top:1px; white-space:nowrap;}
-  .cell.shabbat{background:linear-gradient(160deg, var(--ember-glow), var(--panel-2));border-color:rgba(214,154,76,0.45);padding:5px 2px;}
+  .cell.holiday{background:rgba(214,154,76,0.14); border-color:rgba(214,154,76,0.3);}
+  .cell.shabbat{background:linear-gradient(160deg, var(--ember-glow), var(--panel-2));border-color:rgba(214,154,76,0.45);}
   .cell.shabbat .g{color:var(--amber-bright); font-weight:700; font-size:14px;}
-  .cell.shabbat .parsha{font-size:8.5px; color:var(--amber-bright); margin-top:2px; text-align:center; line-height:1.2; max-width:100%; overflow-wrap:break-word; word-break:break-word;}
-  .cell.holiday::after{content:'';position:absolute;top:3px;left:3px;width:4px;height:4px;border-radius:50%;background:var(--amber);}
-  .cell.evday::before{content:'';position:absolute;bottom:3px;right:3px;width:4px;height:4px;border-radius:50%;background:#7fb7d9;}
+  .cell.shabbat .parsha{font-size:8px; color:var(--amber-bright); margin-top:2px; text-align:center; line-height:1.2; max-width:100%; overflow-wrap:break-word; word-break:break-word; width:100%;}
   .cell.today{border-color:var(--amber-bright); box-shadow:0 0 0 1px var(--amber-bright) inset;}
   .cell.selected{outline:2px solid var(--amber-bright); outline-offset:1px;}
+  .cell .items{display:flex;flex-direction:column;gap:1px;width:100%;margin-top:2px;}
+  .cell .chip{font-size:6.8px;line-height:1.35;border-radius:3px;padding:0 3px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;width:100%;text-align:center;}
+  .cell .chip.hol{background:rgba(214,154,76,0.25);color:var(--amber-bright);}
+  .cell .chip.ev{background:rgba(127,183,217,0.2);color:#bcdcee;}
+  .cell .chip.more{background:none;color:var(--text-faint);}
 
   .detail{min-height:64px;}
   .detail .dhead{font-family:'Frank Ruhl Libre',serif;font-size:17px;font-weight:700;color:var(--amber-bright);margin-bottom:2px;}
@@ -116,12 +122,15 @@
       <button class="mode-btn" id="modeGregBtn" type="button">לועזי</button>
     </div>
     <div class="nav">
-      <button id="prevBtn" aria-label="חודש קודם">›</button>
+      <button id="prevBtn" aria-label="חודש קודם">‹</button>
       <div class="title">
         <div class="greg" id="titlePrimary">—</div>
         <div class="heb" id="titleSecondary">—</div>
       </div>
-      <button id="nextBtn" aria-label="חודש הבא">‹</button>
+      <button id="nextBtn" aria-label="חודש הבא">›</button>
+    </div>
+    <div class="jump-row">
+      <input type="date" id="jumpDate" aria-label="עבור לתאריך">
     </div>
     <div class="weekdays">
       <div>א</div><div>ב</div><div>ג</div><div>ד</div><div>ה</div><div>ו</div><div class="shab">ש</div>
@@ -437,23 +446,36 @@ function renderCalendarGrid(){
   if(VIEW_MODE === 'heb') renderHebMonth(); else renderGregMonth();
 }
 
-function renderDayCell(dateObj, bigLabel, smallLabel, dayInfo, eventDaysSet){
+function renderDayCell(dateObj, bigLabel, smallLabel, dayInfo){
   const key = toKey(dateObj);
   const isShabbat = dateObj.getDay()===6;
   const info = dayInfo.get(key) || {holidays:[], parsha:null};
+  const dayEvents = EVENTS.filter(ev => toKey(ev.date)===key);
+
   const cell = document.createElement('div');
   cell.className = 'cell';
   cell.dataset.key = key;
   if(isShabbat) cell.classList.add('shabbat');
   if(dateObj.toDateString()===todayStr) cell.classList.add('today');
-  if(eventDaysSet.has(key)) cell.classList.add('evday');
   if(info.holidays.length) cell.classList.add('holiday');
 
+  let inner = `<div class="g">${bigLabel}</div><div class="h">${smallLabel}</div>`;
   if(isShabbat && info.parsha){
-    cell.innerHTML = `<div class="g">${bigLabel}</div><div class="h">${smallLabel}</div><div class="parsha">${info.parsha}</div>`;
-  } else {
-    cell.innerHTML = `<div class="g">${bigLabel}</div><div class="h">${smallLabel}</div>`;
+    inner += `<div class="parsha">${info.parsha}</div>`;
   }
+
+  // Small title chips (like a Google Calendar month cell): holidays first, then events.
+  const chips = [];
+  info.holidays.forEach(h => chips.push(`<div class="chip hol">${h}</div>`));
+  dayEvents.forEach(ev => chips.push(`<div class="chip ev">${ev.title}</div>`));
+  const maxChips = (isShabbat && info.parsha) ? 1 : 2;
+  const shown = chips.slice(0, maxChips);
+  const extra = chips.length - shown.length;
+  let itemsHtml = shown.join('');
+  if(extra > 0) itemsHtml += `<div class="chip more">+${extra} נוספים</div>`;
+  if(itemsHtml) inner += `<div class="items">${itemsHtml}</div>`;
+
+  cell.innerHTML = inner;
   cell.addEventListener('click', ()=>{ selected = dateObj; showDetail(dateObj); });
   gridEl.appendChild(cell);
 }
@@ -468,7 +490,6 @@ function renderGregMonth(){
 
   const dayInfo = buildDayInfo(firstDay, lastDay);
   CURRENT_DAY_INFO = dayInfo;
-  const eventDaysSet = new Set(EVENTS.map(ev => toKey(ev.date)));
 
   gridEl.innerHTML = "";
   const startOffset = firstDay.getDay();
@@ -477,7 +498,7 @@ function renderGregMonth(){
   for(let d=1; d<=totalDays; d++){
     const dateObj = new Date(year, month, d);
     const he = new HDate(dateObj);
-    renderDayCell(dateObj, String(d), `${heDayStr(he.getDate())} ${hebMonthName(he)}`, dayInfo, eventDaysSet);
+    renderDayCell(dateObj, String(d), `${heDayStr(he.getDate())} ${hebMonthName(he)}`, dayInfo);
   }
   showDetail(selected.getMonth()===month && selected.getFullYear()===year ? selected : firstDay);
 }
@@ -494,7 +515,6 @@ function renderHebMonth(){
 
   const dayInfo = buildDayInfo(firstGreg, lastGreg);
   CURRENT_DAY_INFO = dayInfo;
-  const eventDaysSet = new Set(EVENTS.map(ev => toKey(ev.date)));
 
   gridEl.innerHTML = "";
   const startOffset = firstGreg.getDay();
@@ -502,7 +522,7 @@ function renderHebMonth(){
   for(let d=1; d<=numDays; d++){
     const hd = new HDate(d, hMonth, hYear);
     const dateObj = hd.greg();
-    renderDayCell(dateObj, heDayStr(d), `${dateObj.getDate()} ${GREG_MONTHS_SHORT[dateObj.getMonth()]}`, dayInfo, eventDaysSet);
+    renderDayCell(dateObj, heDayStr(d), `${dateObj.getDate()} ${GREG_MONTHS_SHORT[dateObj.getMonth()]}`, dayInfo);
   }
   const selHD = new HDate(selected);
   showDetail(selHD.getMonth()===hMonth && selHD.getFullYear()===hYear ? selected : firstGreg);
@@ -590,6 +610,23 @@ function setViewMode(mode){
 }
 document.getElementById('modeHebBtn').addEventListener('click', ()=>setViewMode('heb'));
 document.getElementById('modeGregBtn').addEventListener('click', ()=>setViewMode('greg'));
+
+function jumpToDate(dateObj){
+  selected = dateObj;
+  if(VIEW_MODE==='heb'){
+    const hd = new HDate(dateObj);
+    hebCursor = {month: hd.getMonth(), year: hd.getFullYear()};
+  } else {
+    current = new Date(dateObj.getFullYear(), dateObj.getMonth(), 1);
+  }
+  renderCalendarGrid();
+}
+document.getElementById('jumpDate').addEventListener('change', (e)=>{
+  const val = e.target.value; // "YYYY-MM-DD"
+  if(!val) return;
+  const [y,m,d] = val.split('-').map(Number);
+  jumpToDate(new Date(y, m-1, d));
+});
 
 /* ---------- location picker ---------- */
 const locSelect = document.getElementById('locSelect');
