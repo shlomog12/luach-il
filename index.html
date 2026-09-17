@@ -28,12 +28,13 @@
 
   .card{background:var(--panel);border:1px solid var(--line);border-radius:10px;padding:12px 8px;margin-bottom:14px;}
 
-  .auth-card{display:flex; align-items:center; justify-content:space-between; gap:10px; padding:12px 14px;}
-  .auth-status{font-size:12.5px; color:var(--text-dim); display:flex; align-items:center; gap:6px;}
-  .auth-dot{width:8px;height:8px;border-radius:50%;background:var(--text-faint);flex:none;}
+  .auth-row{display:flex; align-items:center; justify-content:space-between; gap:10px; padding:6px 4px; margin-bottom:10px;}
+  .auth-status{font-size:11px; color:var(--text-faint); display:flex; align-items:center; gap:6px;}
+  .auth-dot{width:7px;height:7px;border-radius:50%;background:var(--text-faint);flex:none;}
   .auth-dot.on{background:var(--ok);}
   .btn{background:var(--panel-2);border:1px solid var(--line);color:var(--amber-bright);font-size:13px;padding:9px 14px;border-radius:8px;cursor:pointer;font-family:inherit;}
   .btn:active{background:var(--ember-glow);}
+  .btn-sm{font-size:11px;padding:5px 10px;}
 
   .mode-toggle{display:flex;gap:6px;margin-bottom:10px;padding:0 4px;}
   .mode-btn{flex:1;background:var(--panel-2);border:1px solid var(--line);color:var(--text-dim);font-size:13px;padding:8px;border-radius:8px;cursor:pointer;font-family:inherit;}
@@ -41,11 +42,10 @@
 
   .nav{display:flex;align-items:center;justify-content:space-between;margin-bottom:10px;padding:0 4px;direction:ltr;}
   .jump-row{display:flex;justify-content:flex-end;flex-wrap:wrap;gap:6px;margin-bottom:8px;padding:0 4px;}
-  .jump-row select, .jump-row input[type="number"], .jump-row input[type="text"]{
+  .jump-row select{
     background:var(--panel-2);color:var(--text);border:1px solid var(--line);border-radius:8px;
     padding:6px 8px;font-size:12.5px;font-family:inherit;color-scheme:dark;
   }
-  .jump-row input[type="number"], .jump-row input[type="text"]{width:78px;}
   .nav button{background:var(--panel-2);border:1px solid var(--line);color:var(--amber-bright);font-size:18px;width:34px;height:34px;border-radius:8px;cursor:pointer;line-height:1;flex:none;}
   .nav button:active{background:var(--ember-glow);}
   .nav .title{text-align:center; min-width:0;}
@@ -129,11 +129,6 @@
     <p>זמני היום לפי <span id="locLabel">—</span> · <button class="loc-link" id="locBtn" type="button">שנה מיקום</button></p>
   </header>
 
-  <div class="card auth-card">
-    <div class="auth-status"><span class="auth-dot" id="authDot"></span><span id="authText">לא מחובר ל-Google Calendar</span></div>
-    <button class="btn" id="authBtn">התחבר עם Google</button>
-  </div>
-
   <div class="card">
     <div class="mode-toggle">
       <button class="mode-btn" id="modeHebBtn" type="button">עברי</button>
@@ -150,13 +145,13 @@
     <div class="jump-row" id="jumpRowGreg">
       <select id="gregJumpDay" aria-label="יום לועזי"></select>
       <select id="gregJumpMonth" aria-label="חודש לועזי"></select>
-      <input type="number" id="gregJumpYear" aria-label="שנה לועזית">
+      <select id="gregJumpYear" aria-label="שנה לועזית"></select>
       <button class="btn" id="gregJumpBtn" type="button">עבור</button>
     </div>
     <div class="jump-row" id="jumpRowHeb" hidden>
       <select id="hebJumpDay" aria-label="יום עברי"></select>
       <select id="hebJumpMonth" aria-label="חודש עברי"></select>
-      <input type="text" id="hebJumpYear" aria-label="שנה עברית" placeholder="למשל תשפ״ו">
+      <select id="hebJumpYear" aria-label="שנה עברית"></select>
       <button class="btn" id="hebJumpBtn" type="button">עבור</button>
     </div>
     <div class="weekdays">
@@ -172,6 +167,11 @@
     <div id="eventsBox"><div class="events-empty">התחברו כדי לראות את האירועים שלכם.</div></div>
     <div class="events-note">מציג אירועים מכל היומנים שלכם, 60 הימים הקרובים. הטוקן תקף לכשעה — אם האירועים לא מתעדכנים, לחצו "התחבר" שוב.</div>
   </details>
+
+  <div class="auth-row">
+    <span class="auth-status"><span class="auth-dot" id="authDot"></span><span id="authText">לא מחובר ל-Google Calendar</span></span>
+    <button class="btn btn-sm" id="authBtn">התחבר עם Google</button>
+  </div>
 
   <p class="foot-note">
     תאריכים עבריים, חגים ופרשת השבוע (לוח ישראל) מחושבים באמצעות ספריית
@@ -212,7 +212,6 @@ const HebrewCalendar = hebcal.HebrewCalendar;
 const HFLAGS = hebcal.flags;
 const Locale = hebcal.Locale;
 const gematriya = hebcal.gematriya;
-const gematriyaStrToNum = hebcal.gematriyaStrToNum;
 
 function hebMonthName(hd){ return Locale.hebrewStripNikkud(Locale.gettext(hd.getMonthName(), 'he')); }
 function heDayStr(n){ return gematriya(n); }
@@ -294,6 +293,14 @@ let VIEW_MODE = loadMode();
 function saveMode(m){
   VIEW_MODE = m;
   try{ localStorage.setItem('luach_mode', m); }catch(e){}
+}
+
+/* ---------- whether the "זמני היום" disclosure is open (persisted locally) ---------- */
+function loadZmanOpen(){
+  try{ return localStorage.getItem('luach_zman_open') === '1'; }catch(e){ return false; }
+}
+function saveZmanOpen(isOpen){
+  try{ localStorage.setItem('luach_zman_open', isOpen ? '1' : '0'); }catch(e){}
 }
 
 /* ---------- zmanim (via @hebcal/core's Zmanim class — same GR"A-based times
@@ -573,9 +580,12 @@ function showDetail(dateObj){
     [isSaturday ? 'צאת השבת (הבדלה)' : 'צאת הכוכבים', z.tzeitHakochavim]
   ];
   zmanHtml += rows.map(([label,d])=>`<div class="row"><span class="label">${label}</span><span class="val">${fmtTime(d)}</span></div>`).join('');
-  html += `<details class="zman-details"><summary>זמני היום</summary>${zmanHtml}</details>`;
+  html += `<details class="zman-details"${loadZmanOpen() ? ' open' : ''}><summary>זמני היום</summary>${zmanHtml}</details>`;
 
   detailCard.innerHTML = html;
+  const zd = detailCard.querySelector('.zman-details');
+  if(zd) zd.addEventListener('toggle', () => saveZmanOpen(zd.open));
+  syncJumpDefaults(dateObj);
 }
 
 /* ---------- nav + mode toggle ---------- */
@@ -632,16 +642,23 @@ function jumpToDate(dateObj){
   }
   renderCalendarGrid();
 }
-/* ---------- jump to a Gregorian date (day/month/year selects, like the Hebrew one) ---------- */
+/* ---------- jump to a Gregorian date (day/month/year, all dropdowns) ---------- */
 const gregJumpDay = document.getElementById('gregJumpDay');
 const gregJumpMonth = document.getElementById('gregJumpMonth');
 const gregJumpYear = document.getElementById('gregJumpYear');
+const YEAR_SPAN_BACK = 5, YEAR_SPAN_FWD = 15; // "not infinite" — a reasonable jump window
 
 GREG_MONTHS.forEach((name, i)=>{
   const opt = document.createElement('option');
   opt.value = String(i+1); opt.textContent = name;
   gregJumpMonth.appendChild(opt);
 });
+const todayGregYear = new Date().getFullYear();
+for(let y = todayGregYear - YEAR_SPAN_BACK; y <= todayGregYear + YEAR_SPAN_FWD; y++){
+  const opt = document.createElement('option');
+  opt.value = String(y); opt.textContent = String(y);
+  gregJumpYear.appendChild(opt);
+}
 function populateGregJumpDays(){
   const year = parseInt(gregJumpYear.value, 10) || current.getFullYear();
   const month = parseInt(gregJumpMonth.value, 10) || 1;
@@ -655,8 +672,6 @@ function populateGregJumpDays(){
   }
   if(prevVal && Number(prevVal)<=numDays) gregJumpDay.value = prevVal;
 }
-gregJumpYear.value = current.getFullYear();
-gregJumpMonth.value = String(current.getMonth()+1);
 populateGregJumpDays();
 gregJumpYear.addEventListener('change', populateGregJumpDays);
 gregJumpMonth.addEventListener('change', populateGregJumpDays);
@@ -668,27 +683,19 @@ document.getElementById('gregJumpBtn').addEventListener('click', ()=>{
   jumpToDate(new Date(year, month-1, day));
 });
 
-/* ---------- jump to a Hebrew date (day/month selects, year typed as letters e.g. תשפ״ו) ---------- */
+/* ---------- jump to a Hebrew date (day/month/year, all dropdowns — year shown as letters) ---------- */
 const hebJumpDay = document.getElementById('hebJumpDay');
 const hebJumpMonth = document.getElementById('hebJumpMonth');
 const hebJumpYear = document.getElementById('hebJumpYear');
 
-function parseHebYearInput(str){
-  str = (str||'').trim();
-  if(!str) return null;
-  let n;
-  if(/^\d+$/.test(str)){
-    n = parseInt(str, 10);
-  } else {
-    try{ n = gematriyaStrToNum(str); }
-    catch(e){ return null; }
-  }
-  if(!n || !isFinite(n)) return null;
-  if(n < 1000) n += 5000; // standard convention: letters omit the thousands (ה)
-  return n;
+const todayHebYear = new HDate(new Date()).getFullYear();
+for(let y = todayHebYear - YEAR_SPAN_BACK; y <= todayHebYear + YEAR_SPAN_FWD; y++){
+  const opt = document.createElement('option');
+  opt.value = String(y); opt.textContent = gematriya(y % 1000);
+  hebJumpYear.appendChild(opt);
 }
 function populateHebJumpDays(){
-  const year = parseHebYearInput(hebJumpYear.value) || hebCursor.year;
+  const year = parseInt(hebJumpYear.value, 10) || hebCursor.year;
   const month = parseInt(hebJumpMonth.value, 10) || 1;
   const numDays = new HDate(1, month, year).daysInMonth();
   const prevVal = hebJumpDay.value;
@@ -701,7 +708,7 @@ function populateHebJumpDays(){
   if(prevVal && Number(prevVal)<=numDays) hebJumpDay.value = prevVal;
 }
 function populateHebJumpMonths(){
-  const year = parseHebYearInput(hebJumpYear.value) || hebCursor.year;
+  const year = parseInt(hebJumpYear.value, 10) || hebCursor.year;
   const numMonths = HDate.monthsInYear(year);
   const prevVal = hebJumpMonth.value;
   hebJumpMonth.innerHTML = '';
@@ -714,17 +721,35 @@ function populateHebJumpMonths(){
   if(prevVal && Number(prevVal)<=numMonths) hebJumpMonth.value = prevVal;
   populateHebJumpDays();
 }
-hebJumpYear.value = gematriya(hebCursor.year % 1000);
 populateHebJumpMonths();
 hebJumpYear.addEventListener('change', populateHebJumpMonths);
 hebJumpMonth.addEventListener('change', populateHebJumpDays);
 document.getElementById('hebJumpBtn').addEventListener('click', ()=>{
-  const year = parseHebYearInput(hebJumpYear.value);
+  const year = parseInt(hebJumpYear.value, 10);
   const month = parseInt(hebJumpMonth.value, 10);
   const day = parseInt(hebJumpDay.value, 10);
-  if(!year || !month || !day){ alert('נא להזין שנה עברית תקינה, למשל תשפ״ו'); return; }
+  if(!year || !month || !day) return;
   jumpToDate(new HDate(day, month, year).greg());
 });
+
+// Keep both jump controls defaulted to whatever date is currently being viewed
+// (until the visitor picks something else in them) — called from showDetail().
+function syncJumpDefaults(dateObj){
+  if(gregJumpYear.querySelector(`option[value="${dateObj.getFullYear()}"]`)){
+    gregJumpYear.value = String(dateObj.getFullYear());
+    gregJumpMonth.value = String(dateObj.getMonth()+1);
+    populateGregJumpDays();
+    gregJumpDay.value = String(dateObj.getDate());
+  }
+  const hd = new HDate(dateObj);
+  if(hebJumpYear.querySelector(`option[value="${hd.getFullYear()}"]`)){
+    hebJumpYear.value = String(hd.getFullYear());
+    populateHebJumpMonths();
+    hebJumpMonth.value = String(hd.getMonth());
+    populateHebJumpDays();
+    hebJumpDay.value = String(hd.getDate());
+  }
+}
 
 /* ---------- location picker ---------- */
 const locSelect = document.getElementById('locSelect');
