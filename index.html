@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
-<title>לוח שנה · מעלה לבונה</title>
+<title>לוח שנה · לוח</title>
 <link rel="manifest" href="manifest.json">
 <meta name="theme-color" content="#141f33">
 <link rel="icon" href="icon.svg" type="image/svg+xml">
@@ -24,7 +24,7 @@
   header.top{text-align:center; margin-bottom:14px;}
   header.top h1{font-family:'Frank Ruhl Libre',serif;font-weight:700;font-size:24px;margin:0 0 4px;color:var(--amber-bright);letter-spacing:0.5px;}
   header.top p{margin:0;font-size:12.5px;color:var(--text-dim);}
-  header.top .loc-link{color:var(--text-dim); text-decoration:underline; text-decoration-color:var(--text-faint);}
+  header.top .loc-link{background:none;border:none;padding:0;font:inherit;cursor:pointer;color:var(--text-dim); text-decoration:underline; text-decoration-color:var(--text-faint);}
 
   .card{background:var(--panel);border:1px solid var(--line);border-radius:10px;padding:12px 8px;margin-bottom:14px;}
 
@@ -34,6 +34,10 @@
   .auth-dot.on{background:var(--ok);}
   .btn{background:var(--panel-2);border:1px solid var(--line);color:var(--amber-bright);font-size:13px;padding:9px 14px;border-radius:8px;cursor:pointer;font-family:inherit;}
   .btn:active{background:var(--ember-glow);}
+
+  .mode-toggle{display:flex;gap:6px;margin-bottom:10px;padding:0 4px;}
+  .mode-btn{flex:1;background:var(--panel-2);border:1px solid var(--line);color:var(--text-dim);font-size:13px;padding:8px;border-radius:8px;cursor:pointer;font-family:inherit;}
+  .mode-btn.active{background:var(--ember-glow);color:var(--amber-bright);border-color:rgba(214,154,76,0.45);}
 
   .nav{display:flex;align-items:center;justify-content:space-between;margin-bottom:10px;padding:0 4px;}
   .nav button{background:var(--panel-2);border:1px solid var(--line);color:var(--amber-bright);font-size:18px;width:34px;height:34px;border-radius:8px;cursor:pointer;line-height:1;flex:none;}
@@ -84,13 +88,21 @@
 
   .foot-note{font-size:11px; color:var(--text-faint); line-height:1.8; text-align:center;}
   .foot-note a{color:var(--amber);}
+
+  dialog#locDialog{background:var(--panel);color:var(--text);border:1px solid var(--line);border-radius:12px;padding:0;max-width:340px;width:90vw;}
+  dialog#locDialog::backdrop{background:rgba(0,0,0,0.55);}
+  .dlg-inner{padding:16px;}
+  .loc-select{width:100%;background:var(--panel-2);color:var(--text);border:1px solid var(--line);border-radius:8px;padding:9px;font-size:14px;font-family:inherit;margin-bottom:10px;}
+  .custom-loc-row{display:flex;flex-direction:column;gap:8px;margin-bottom:10px;}
+  .custom-loc-row input{background:var(--panel-2);color:var(--text);border:1px solid var(--line);border-radius:8px;padding:8px;font-size:13px;font-family:inherit;width:100%;}
+  .dlg-actions{display:flex;justify-content:flex-end;gap:8px;margin-top:4px;}
 </style>
 </head>
 <body>
 <div class="wrap">
   <header class="top">
     <h1>לוח שנה עברי · לועזי</h1>
-    <p>זמני היום בהשראת <a class="loc-link" href="https://www.yeshiva.org.il/calendar/timesday?place=מעלה-לבונה" target="_blank" rel="noopener">אתר ישיבה</a> · מעלה לבונה</p>
+    <p>זמני היום לפי <span id="locLabel">—</span> · <button class="loc-link" id="locBtn" type="button">שנה מיקום</button></p>
   </header>
 
   <div class="card auth-card">
@@ -99,11 +111,15 @@
   </div>
 
   <div class="card">
+    <div class="mode-toggle">
+      <button class="mode-btn" id="modeHebBtn" type="button">עברי</button>
+      <button class="mode-btn" id="modeGregBtn" type="button">לועזי</button>
+    </div>
     <div class="nav">
       <button id="prevBtn" aria-label="חודש קודם">›</button>
       <div class="title">
-        <div class="greg" id="gregTitle">—</div>
-        <div class="heb" id="hebTitle">—</div>
+        <div class="greg" id="titlePrimary">—</div>
+        <div class="heb" id="titleSecondary">—</div>
       </div>
       <button id="nextBtn" aria-label="חודש הבא">‹</button>
     </div>
@@ -122,13 +138,30 @@
   </div>
 
   <p class="foot-note">
-    תאריכים עבריים ופרשת השבוע (לוח ישראל) מבוססים על נתוני <a href="https://www.hebcal.com" target="_blank" rel="noopener">Hebcal</a>, זמינים עד ספטמבר 2027.
-    זמני היום מחושבים אסטרונומית לקואורדינטות מעלה לבונה (שיטת הגר"א) —
-    ללוח המדויק של אתר ישיבה <a href="https://www.yeshiva.org.il/calendar/shabatot?place=מעלה-לבונה" target="_blank" rel="noopener">לחצו כאן</a>.
+    תאריכים עבריים, חגים ופרשת השבוע (לוח ישראל) מחושבים באמצעות ספריית
+    <a href="https://www.hebcal.com" target="_blank" rel="noopener">Hebcal</a>.
+    זמני היום מחושבים אסטרונומית לקואורדינטות שבחרתם (שיטת הגר"א).
   </p>
 </div>
 
+<dialog id="locDialog">
+  <div class="dlg-inner">
+    <div class="section-title">בחרו מיקום לזמני היום</div>
+    <select class="loc-select" id="locSelect"></select>
+    <div class="custom-loc-row" id="customLocRow" hidden>
+      <input type="text" id="customName" placeholder="שם המקום">
+      <input type="number" id="customLat" placeholder="קו רוחב (Latitude)" step="0.0001">
+      <input type="number" id="customLon" placeholder="קו אורך (Longitude)" step="0.0001">
+    </div>
+    <div class="dlg-actions">
+      <button class="btn" id="locCancelBtn" type="button">ביטול</button>
+      <button class="btn" id="locSaveBtn" type="button">שמירה</button>
+    </div>
+  </div>
+</dialog>
+
 <script src="https://accounts.google.com/gsi/client" async defer></script>
+<script src="https://cdn.jsdelivr.net/npm/@hebcal/core@6.9.2/dist/bundle.min.js"></script>
 <script>
 /* =========================================================
    1) CONFIGURE THIS: paste your own Google OAuth Client ID
@@ -137,162 +170,93 @@
 const CLIENT_ID = "YOUR_CLIENT_ID_HERE.apps.googleusercontent.com";
 const CAL_SCOPE = "https://www.googleapis.com/auth/calendar.readonly";
 
-/* ---------- location ---------- */
-const LAT = 32.05444, LON = 35.24083;
+/* ---------- hebcal shortcuts ---------- */
+const HDate = hebcal.HDate;
+const HebrewCalendar = hebcal.HebrewCalendar;
+const HFLAGS = hebcal.flags;
+const Locale = hebcal.Locale;
+const gematriya = hebcal.gematriya;
 
-/* ---------- Hebrew calendar anchors (every Shabbat, Israel reading), Sept 2025 - Sept 2027 ---------- */
-const ANCHORS = [
-["2025-09-27",5,"תשרי",5786,"וילך (שבת שובה)"],
-["2025-10-04",12,"תשרי",5786,"האזינו"],
-["2025-10-11",19,"תשרי",5786,"סוכות (חוה\"מ)"],
-["2025-10-18",26,"תשרי",5786,"בראשית"],
-["2025-10-25",3,"חשוון",5786,"נח"],
-["2025-11-01",10,"חשוון",5786,"לך לך"],
-["2025-11-08",17,"חשוון",5786,"וירא"],
-["2025-11-15",24,"חשוון",5786,"חיי שרה"],
-["2025-11-22",2,"כסלו",5786,"תולדות"],
-["2025-11-29",9,"כסלו",5786,"ויצא"],
-["2025-12-06",16,"כסלו",5786,"וישלח"],
-["2025-12-13",23,"כסלו",5786,"וישב"],
-["2025-12-20",30,"כסלו",5786,"מקץ (שבת ר\"ח, חנוכה)"],
-["2025-12-27",7,"טבת",5786,"ויגש"],
-["2026-01-03",14,"טבת",5786,"ויחי"],
-["2026-01-10",21,"טבת",5786,"שמות"],
-["2026-01-17",28,"טבת",5786,"וארא"],
-["2026-01-24",6,"שבט",5786,"בא"],
-["2026-01-31",13,"שבט",5786,"בשלח (שבת שירה)"],
-["2026-02-07",20,"שבט",5786,"יתרו"],
-["2026-02-14",27,"שבט",5786,"משפטים (שבת שקלים)"],
-["2026-02-21",4,"אדר",5786,"תרומה"],
-["2026-02-28",11,"אדר",5786,"תצוה (שבת זכור)"],
-["2026-03-07",18,"אדר",5786,"כי תשא (שבת פרה)"],
-["2026-03-14",25,"אדר",5786,"ויקהל-פקודי (שבת החודש)"],
-["2026-03-21",3,"ניסן",5786,"ויקרא"],
-["2026-03-28",10,"ניסן",5786,"צו (שבת הגדול)"],
-["2026-04-04",17,"ניסן",5786,"פסח (חוה\"מ)"],
-["2026-04-11",24,"ניסן",5786,"שמיני"],
-["2026-04-18",1,"אייר",5786,"תזריע-מצורע (ר\"ח אייר)"],
-["2026-04-25",8,"אייר",5786,"אחרי מות-קדושים"],
-["2026-05-02",15,"אייר",5786,"אמור"],
-["2026-05-09",22,"אייר",5786,"בהר-בחוקותי"],
-["2026-05-16",29,"אייר",5786,"במדבר"],
-["2026-05-23",7,"סיון",5786,"נשא"],
-["2026-05-30",14,"סיון",5786,"בהעלותך"],
-["2026-06-06",21,"סיון",5786,"שלח"],
-["2026-06-13",28,"סיון",5786,"קרח"],
-["2026-06-20",5,"תמוז",5786,"חקת"],
-["2026-06-27",12,"תמוז",5786,"בלק"],
-["2026-07-04",19,"תמוז",5786,"פינחס"],
-["2026-07-11",26,"תמוז",5786,"מטות-מסעי"],
-["2026-07-18",4,"אב",5786,"דברים (שבת חזון)"],
-["2026-07-25",11,"אב",5786,"ואתחנן (שבת נחמו)"],
-["2026-08-01",18,"אב",5786,"עקב"],
-["2026-08-08",25,"אב",5786,"ראה"],
-["2026-08-15",2,"אלול",5786,"שופטים"],
-["2026-08-22",9,"אלול",5786,"כי תצא"],
-["2026-08-29",16,"אלול",5786,"כי תבוא"],
-["2026-09-05",23,"אלול",5786,"נצבים-וילך"],
-["2026-09-12",1,"תשרי",5787,"ראש השנה"],
-["2026-09-19",8,"תשרי",5787,"האזינו (שבת שובה)"],
-["2026-09-26",15,"תשרי",5787,"סוכות (חוה\"מ)"],
-["2026-10-03",22,"תשרי",5787,"שמיני עצרת / שמחת תורה"],
-["2026-10-10",29,"תשרי",5787,"בראשית"],
-["2026-10-17",6,"חשוון",5787,"נח"],
-["2026-10-24",13,"חשוון",5787,"לך לך"],
-["2026-10-31",20,"חשוון",5787,"וירא"],
-["2026-11-07",27,"חשוון",5787,"חיי שרה"],
-["2026-11-14",4,"כסלו",5787,"תולדות"],
-["2026-11-21",11,"כסלו",5787,"ויצא"],
-["2026-11-28",18,"כסלו",5787,"וישלח"],
-["2026-12-05",25,"כסלו",5787,"וישב (חנוכה יום א')"],
-["2026-12-12",2,"טבת",5787,"מקץ (חנוכה יום ח')"],
-["2026-12-19",9,"טבת",5787,"ויגש"],
-["2026-12-26",16,"טבת",5787,"ויחי"],
-["2027-01-02",23,"טבת",5787,"שמות"],
-["2027-01-09",1,"שבט",5787,"וארא (ר\"ח שבט)"],
-["2027-01-16",8,"שבט",5787,"בא"],
-["2027-01-23",15,"שבט",5787,"בשלח (שבת שירה)"],
-["2027-01-30",22,"שבט",5787,"יתרו"],
-["2027-02-06",29,"שבט",5787,"משפטים"],
-["2027-02-13",6,"אדר א",5787,"תרומה"],
-["2027-02-20",13,"אדר א",5787,"תצוה"],
-["2027-02-27",20,"אדר א",5787,"כי תשא"],
-["2027-03-06",27,"אדר א",5787,"ויקהל (שבת שקלים)"],
-["2027-03-13",4,"אדר ב",5787,"פקודי"],
-["2027-03-20",11,"אדר ב",5787,"ויקרא (שבת זכור)"],
-["2027-03-27",18,"אדר ב",5787,"צו (שבת פרה)"],
-["2027-04-03",25,"אדר ב",5787,"שמיני (שבת החודש)"],
-["2027-04-10",3,"ניסן",5787,"תזריע"],
-["2027-04-17",10,"ניסן",5787,"מצורע (שבת הגדול)"],
-["2027-04-24",17,"ניסן",5787,"פסח (חוה\"מ)"],
-["2027-05-01",24,"ניסן",5787,"אחרי מות"],
-["2027-05-08",1,"אייר",5787,"קדושים (ר\"ח אייר)"],
-["2027-05-15",8,"אייר",5787,"אמור"],
-["2027-05-22",15,"אייר",5787,"בהר"],
-["2027-05-29",22,"אייר",5787,"בחוקותי"],
-["2027-06-05",29,"אייר",5787,"במדבר"],
-["2027-06-12",7,"סיון",5787,"נשא"],
-["2027-06-19",14,"סיון",5787,"בהעלותך"],
-["2027-06-26",21,"סיון",5787,"שלח"],
-["2027-07-03",28,"סיון",5787,"קרח"],
-["2027-07-10",5,"תמוז",5787,"חקת"],
-["2027-07-17",12,"תמוז",5787,"בלק"],
-["2027-07-24",19,"תמוז",5787,"פינחס"],
-["2027-07-31",26,"תמוז",5787,"מטות-מסעי"],
-["2027-08-07",4,"אב",5787,"דברים (שבת חזון)"],
-["2027-08-14",11,"אב",5787,"ואתחנן (שבת נחמו)"],
-["2027-08-21",18,"אב",5787,"עקב"],
-["2027-08-28",25,"אב",5787,"ראה"],
-["2027-09-04",2,"אלול",5787,"שופטים"],
-["2027-09-11",9,"אלול",5787,"כי תצא"],
-["2027-09-18",16,"אלול",5787,"כי תבוא"],
-["2027-09-25",23,"אלול",5787,"נצבים-וילך"]
-].map(r=>({date:r[0], hd:r[1], hm:r[2], hy:r[3], label:r[4]}));
+function hebMonthName(hd){ return Locale.hebrewStripNikkud(Locale.gettext(hd.getMonthName(), 'he')); }
+function heDayStr(n){ return gematriya(n); }
 
-const ANCHOR_DATES = ANCHORS.map(a=>new Date(a.date+"T00:00:00"));
-const FIRST_ANCHOR = ANCHOR_DATES[0], LAST_ANCHOR = ANCHOR_DATES[ANCHOR_DATES.length-1];
+/* Which categories count as a "holiday tag" on a given day (parsha is handled separately) */
+const HOLIDAY_FLAGS = HFLAGS.CHAG | HFLAGS.MINOR_HOLIDAY | HFLAGS.MODERN_HOLIDAY |
+  HFLAGS.MINOR_FAST | HFLAGS.MAJOR_FAST | HFLAGS.SPECIAL_SHABBAT |
+  HFLAGS.ROSH_CHODESH | HFLAGS.CHOL_HAMOED;
 
-function heDateFor(dateObj){
-  const t = new Date(dateObj.getFullYear(), dateObj.getMonth(), dateObj.getDate());
-  if(t < FIRST_ANCHOR || t > LAST_ANCHOR) return null;
-  let idx = Math.floor((t - FIRST_ANCHOR) / (86400000*7));
-  idx = Math.max(0, Math.min(idx, ANCHORS.length-2));
-  while(idx < ANCHORS.length-2 && ANCHOR_DATES[idx+1] <= t) idx++;
-  while(idx > 0 && ANCHOR_DATES[idx] > t) idx--;
-  const A = ANCHORS[idx], B = ANCHORS[idx+1];
-  const i = Math.round((t - ANCHOR_DATES[idx]) / 86400000);
-  let day, hm, hy;
-  if(A.hm===B.hm && A.hy===B.hy){ day = A.hd + i; hm = A.hm; hy = A.hy; }
-  else {
-    const X = 7 - B.hd;
-    if(i <= X){ day = A.hd + i; hm = A.hm; hy = A.hy; }
-    else { day = i - X; hm = B.hm; hy = B.hy; }
-  }
-  return {hd: day, hm, hy};
+function cleanHebText(s){
+  return Locale.hebrewStripNikkud(s).replace(/\s+\d{4}$/, '');
 }
 
-const HE_NUM = ["","א","ב","ג","ד","ה","ו","ז","ח","ט","י","יא","יב","יג","יד","טו","טז","יז","יח","יט","כ","כא","כב","כג","כד","כה","כו","כז","כח","כט","ל"];
-function heDayStr(n){ return (HE_NUM[n]||n) + "׳"; }
+/* Build dateKey -> {holidays:[str], parsha:str|null} for every day in [rangeStart, rangeEnd] */
+function buildDayInfo(rangeStart, rangeEnd){
+  const map = new Map();
+  const events = HebrewCalendar.calendar({ start: rangeStart, end: rangeEnd, il: true, sedrot: true, candlelighting: false });
+  events.forEach(ev => {
+    const key = toKey(ev.getDate().greg());
+    const f = ev.getFlags();
+    if(!map.has(key)) map.set(key, {holidays:[], parsha:null});
+    const entry = map.get(key);
+    if(f & HFLAGS.PARSHA_HASHAVUA){
+      entry.parsha = cleanHebText(ev.render('he')).replace(/^פרשת\s*/, '');
+    } else if((f & HOLIDAY_FLAGS) && !(f & HFLAGS.EREV)){
+      entry.holidays.push(cleanHebText(ev.render('he')));
+    }
+  });
+  return map;
+}
 
-function fixedHolidays(hm, hd){
-  const list = [];
-  if(hm==="תשרי"){
-    if(hd===1) list.push("ראש השנה");
-    if(hd===3) list.push("צום גדליה");
-    if(hd===10) list.push("יום כיפור");
-    if(hd>=15 && hd<=21) list.push("סוכות");
-    if(hd===22) list.push("שמיני עצרת / שמחת תורה");
-  }
-  if(hm==="כסלו" && hd>=25) list.push("חנוכה");
-  if(hm==="טבת" && hd<=3) list.push("חנוכה");
-  if(hm==="שבט" && hd===15) list.push("ט\"ו בשבט");
-  if((hm==="אדר" && hd===14) || (hm==="אדר ב" && hd===14)) list.push("פורים");
-  if((hm==="אדר" && hd===15) || (hm==="אדר ב" && hd===15)) list.push("שושן פורים");
-  if(hm==="ניסן" && hd>=15 && hd<=21) list.push("פסח");
-  if(hm==="אייר" && hd===18) list.push("ל\"ג בעומר");
-  if(hm==="סיון" && hd===6) list.push("שבועות");
-  if(hm==="אב" && hd===9) list.push("תשעה באב");
-  return list;
+/* ---------- location (persisted locally, default Jerusalem) ---------- */
+const LOCATIONS = [
+  {name:"ירושלים", lat:31.7683, lon:35.2137},
+  {name:"תל אביב", lat:32.0853, lon:34.7818},
+  {name:"חיפה", lat:32.7940, lon:34.9896},
+  {name:"באר שבע", lat:31.2530, lon:34.7915},
+  {name:"אילת", lat:29.5581, lon:34.9482},
+  {name:"מעלה לבונה", lat:32.05444, lon:35.24083},
+  {name:"בני ברק", lat:32.0807, lon:34.8338},
+  {name:"פתח תקווה", lat:32.0878, lon:34.8878},
+  {name:"נתניה", lat:32.3215, lon:34.8532},
+  {name:"אשדוד", lat:31.8014, lon:34.6435},
+  {name:"אשקלון", lat:31.6688, lon:34.5715},
+  {name:"ראשון לציון", lat:31.9730, lon:34.7925},
+  {name:"רחובות", lat:31.8928, lon:34.8113},
+  {name:"מודיעין", lat:31.8969, lon:35.0095},
+  {name:"צפת", lat:32.9646, lon:35.4960},
+  {name:"טבריה", lat:32.7922, lon:35.5312},
+  {name:"בית שמש", lat:31.7476, lon:34.9887},
+  {name:"אריאל", lat:32.1058, lon:35.1735},
+  {name:"קריית ארבע", lat:31.5300, lon:35.1177},
+  {name:"עפולה", lat:32.6077, lon:35.2897},
+];
+const DEFAULT_LOCATION = LOCATIONS[0]; // ירושלים
+
+function loadLocation(){
+  try{
+    const raw = localStorage.getItem('luach_loc');
+    if(raw){
+      const obj = JSON.parse(raw);
+      if(obj && typeof obj.lat==='number' && typeof obj.lon==='number' && obj.name) return obj;
+    }
+  }catch(e){}
+  return DEFAULT_LOCATION;
+}
+let LOCATION = loadLocation();
+function saveLocation(loc){
+  LOCATION = loc;
+  try{ localStorage.setItem('luach_loc', JSON.stringify(loc)); }catch(e){}
+}
+
+/* ---------- view mode: 'heb' or 'greg' (persisted locally) ---------- */
+function loadMode(){
+  try{ const m = localStorage.getItem('luach_mode'); if(m==='heb'||m==='greg') return m; }catch(e){}
+  return 'heb';
+}
+let VIEW_MODE = loadMode();
+function saveMode(m){
+  VIEW_MODE = m;
+  try{ localStorage.setItem('luach_mode', m); }catch(e){}
 }
 
 /* ---------- solar / zmanim calculation ---------- */
@@ -446,102 +410,135 @@ function renderEvents(){
 const GREG_MONTHS = ["ינואר","פברואר","מרץ","אפריל","מאי","יוני","יולי","אוגוסט","ספטמבר","אוקטובר","נובמבר","דצמבר"];
 const WEEKDAY_HE = ["ראשון","שני","שלישי","רביעי","חמישי","שישי","שבת"];
 
-let current = new Date(); current.setDate(1);
+let current = new Date(); current.setDate(1); // used in Gregorian mode
+let hebCursor = (function(){ const hd = new HDate(new Date()); return {month: hd.getMonth(), year: hd.getFullYear()}; })(); // used in Hebrew mode
 let selected = new Date();
 let todayStr = new Date().toDateString();
+let CURRENT_DAY_INFO = new Map();
 
 const gridEl = document.getElementById('grid');
-const gregTitleEl = document.getElementById('gregTitle');
-const hebTitleEl = document.getElementById('hebTitle');
+// titlePrimary/titleSecondary are reused for either mode: primary = the
+// calendar currently being browsed by (big), secondary = the other one (small).
+const titlePrimaryEl = document.getElementById('titlePrimary');
+const titleSecondaryEl = document.getElementById('titleSecondary');
 const detailCard = document.getElementById('detailCard');
 
 function toKey(d){ return d.getFullYear()+"-"+String(d.getMonth()+1).padStart(2,'0')+"-"+String(d.getDate()).padStart(2,'0'); }
 
+function gregRangeLabel(a,b){
+  const fmt = (d)=> `${d.getDate()} ב${GREG_MONTHS[d.getMonth()]}`;
+  if(a.getFullYear()===b.getFullYear()){
+    return `${fmt(a)} – ${fmt(b)} ${a.getFullYear()}`;
+  }
+  return `${fmt(a)} ${a.getFullYear()} – ${fmt(b)} ${b.getFullYear()}`;
+}
+
 function renderCalendarGrid(){
+  if(VIEW_MODE === 'heb') renderHebMonth(); else renderGregMonth();
+}
+
+function renderDayCell(dateObj, bigLabel, smallLabel, dayInfo, eventDaysSet){
+  const key = toKey(dateObj);
+  const isShabbat = dateObj.getDay()===6;
+  const info = dayInfo.get(key) || {holidays:[], parsha:null};
+  const cell = document.createElement('div');
+  cell.className = 'cell';
+  cell.dataset.key = key;
+  if(isShabbat) cell.classList.add('shabbat');
+  if(dateObj.toDateString()===todayStr) cell.classList.add('today');
+  if(eventDaysSet.has(key)) cell.classList.add('evday');
+  if(info.holidays.length) cell.classList.add('holiday');
+
+  if(isShabbat && info.parsha){
+    cell.innerHTML = `<div class="g">${bigLabel}</div><div class="h">${smallLabel}</div><div class="parsha">${info.parsha}</div>`;
+  } else {
+    cell.innerHTML = `<div class="g">${bigLabel}</div><div class="h">${smallLabel}</div>`;
+  }
+  cell.addEventListener('click', ()=>{ selected = dateObj; showDetail(dateObj); });
+  gridEl.appendChild(cell);
+}
+
+function renderGregMonth(){
   const year = current.getFullYear(), month = current.getMonth();
   const firstDay = new Date(year, month, 1);
   const lastDay = new Date(year, month+1, 0);
-  gregTitleEl.textContent = `${GREG_MONTHS[month]} ${year}`;
+  titlePrimaryEl.textContent = `${GREG_MONTHS[month]} ${year}`;
+  const firstHe = new HDate(firstDay);
+  titleSecondaryEl.textContent = `${hebMonthName(firstHe)} ${gematriya(firstHe.getFullYear())}`;
 
-  const firstHe = heDateFor(firstDay);
-  hebTitleEl.textContent = firstHe ? `${firstHe.hm} ${firstHe.hy}` : "אין נתונים לחודש זה";
-
+  const dayInfo = buildDayInfo(firstDay, lastDay);
+  CURRENT_DAY_INFO = dayInfo;
   const eventDaysSet = new Set(EVENTS.map(ev => toKey(ev.date)));
 
   gridEl.innerHTML = "";
   const startOffset = firstDay.getDay();
   const totalDays = lastDay.getDate();
-  for(let i=0;i<startOffset;i++){
-    const c = document.createElement('div'); c.className='cell empty'; gridEl.appendChild(c);
-  }
+  for(let i=0;i<startOffset;i++){ const c = document.createElement('div'); c.className='cell empty'; gridEl.appendChild(c); }
   for(let d=1; d<=totalDays; d++){
     const dateObj = new Date(year, month, d);
-    const he = heDateFor(dateObj);
-    const isShabbat = dateObj.getDay()===6;
-    const cell = document.createElement('div');
-    cell.className = 'cell';
-    if(isShabbat) cell.classList.add('shabbat');
-    if(dateObj.toDateString()===todayStr) cell.classList.add('today');
-    if(eventDaysSet.has(toKey(dateObj))) cell.classList.add('evday');
-    if(he){
-      const hols = fixedHolidays(he.hm, he.hd);
-      if(hols.length) cell.classList.add('holiday');
-      if(isShabbat){
-        const anchor = ANCHORS.find(a=>a.date===toKey(dateObj));
-        const parshaShort = anchor ? anchor.label.split(' (')[0] : '';
-        cell.innerHTML = `<div class="g">${d}</div><div class="h">${heDayStr(he.hd)} ${he.hm}</div><div class="parsha">${parshaShort}</div>`;
-      } else {
-        cell.innerHTML = `<div class="g">${d}</div><div class="h">${heDayStr(he.hd)}</div>`;
-      }
-    } else {
-      cell.innerHTML = `<div class="g">${d}</div><div class="h">—</div>`;
-    }
-    cell.addEventListener('click', ()=>{ selected = dateObj; showDetail(dateObj); });
-    gridEl.appendChild(cell);
+    const he = new HDate(dateObj);
+    renderDayCell(dateObj, String(d), `${heDayStr(he.getDate())} ${hebMonthName(he)}`, dayInfo, eventDaysSet);
   }
   showDetail(selected.getMonth()===month && selected.getFullYear()===year ? selected : firstDay);
 }
 
-function showDetail(dateObj){
-  Array.from(gridEl.children).forEach(c=>{
-    const gEl = c.querySelector('.g');
-    if(gEl && parseInt(gEl.textContent)===dateObj.getDate() && !c.classList.contains('empty')
-       && dateObj.getMonth()===current.getMonth()){
-      c.classList.add('selected');
-    } else { c.classList.remove('selected'); }
-  });
+function renderHebMonth(){
+  const {month: hMonth, year: hYear} = hebCursor;
+  const firstHD = new HDate(1, hMonth, hYear);
+  const numDays = firstHD.daysInMonth();
+  const firstGreg = firstHD.greg();
+  const lastGreg = new HDate(numDays, hMonth, hYear).greg();
 
-  const he = heDateFor(dateObj);
-  if(!he){
-    detailCard.innerHTML = `<div class="err">אין נתונים עבריים לתאריך זה (טווח זמין: ספטמבר 2025 – ספטמבר 2027).</div>`;
-    return;
+  titlePrimaryEl.textContent = `${hebMonthName(firstHD)} ${gematriya(hYear)}`;
+  titleSecondaryEl.textContent = gregRangeLabel(firstGreg, lastGreg);
+
+  const dayInfo = buildDayInfo(firstGreg, lastGreg);
+  CURRENT_DAY_INFO = dayInfo;
+  const eventDaysSet = new Set(EVENTS.map(ev => toKey(ev.date)));
+
+  gridEl.innerHTML = "";
+  const startOffset = firstGreg.getDay();
+  for(let i=0;i<startOffset;i++){ const c = document.createElement('div'); c.className='cell empty'; gridEl.appendChild(c); }
+  for(let d=1; d<=numDays; d++){
+    const hd = new HDate(d, hMonth, hYear);
+    const dateObj = hd.greg();
+    renderDayCell(dateObj, heDayStr(d), `${dateObj.getDate()} ${GREG_MONTHS_SHORT[dateObj.getMonth()]}`, dayInfo, eventDaysSet);
   }
+  const selHD = new HDate(selected);
+  showDetail(selHD.getMonth()===hMonth && selHD.getFullYear()===hYear ? selected : firstGreg);
+}
+
+function showDetail(dateObj){
+  const key = toKey(dateObj);
+  Array.from(gridEl.children).forEach(c=>{ c.classList.toggle('selected', c.dataset.key === key); });
+
+  const hd = new HDate(dateObj);
   const isSaturday = dateObj.getDay()===6;
   const isFriday = dateObj.getDay()===5;
 
   let html = `<div class="dhead">${WEEKDAY_HE[dateObj.getDay()]}, ${dateObj.getDate()} ב${GREG_MONTHS[dateObj.getMonth()]} ${dateObj.getFullYear()}</div>`;
-  html += `<div class="dsub">${heDayStr(he.hd)} ב${he.hm} ${he.hy}</div>`;
+  html += `<div class="dsub">${heDayStr(hd.getDate())} ב${hebMonthName(hd)} ${gematriya(hd.getFullYear())}</div>`;
 
-  if(isSaturday){
-    const anchor = ANCHORS.find(a=>a.date===toKey(dateObj));
-    if(anchor) html += `<div class="parsha">פרשת ${anchor.label}</div>`;
-  } else {
-    const hols = fixedHolidays(he.hm, he.hd);
-    if(hols.length) html += `<div class="holidays">` + hols.map(h=>`<span class="holiday-tag">${h}</span>`).join('') + `</div>`;
+  const info = CURRENT_DAY_INFO.get(key) || {holidays:[], parsha:null};
+  if(isSaturday && info.parsha){
+    html += `<div class="parsha">פרשת ${info.parsha}</div>`;
+  }
+  if(info.holidays.length){
+    html += `<div class="holidays">` + info.holidays.map(h=>`<span class="holiday-tag">${h}</span>`).join('') + `</div>`;
   }
 
-  const dayEvents = EVENTS.filter(ev => toKey(ev.date)===toKey(dateObj));
+  const dayEvents = EVENTS.filter(ev => toKey(ev.date)===key);
   if(dayEvents.length){
     html += `<div class="holidays">` + dayEvents.map(ev=>`<span class="holiday-tag">${ev.allDay?'':fmtTime(ev.date)+' · '}${ev.title}</span>`).join('') + `</div>`;
   }
 
   if(isFriday){
-    const z = sunTimes(dateObj, LAT, LON);
+    const z = sunTimes(dateObj, LOCATION.lat, LOCATION.lon);
     const candle = new Date(z.sunset.getTime() - 20*60000);
     html += `<div class="row"><span class="label">הדלקת נרות (משוער, שקיעה פחות 20 ד')</span><span class="val">${fmtTime(candle)}</span></div>`;
   }
   if(isSaturday){
-    const z = sunTimes(dateObj, LAT, LON);
+    const z = sunTimes(dateObj, LOCATION.lat, LOCATION.lon);
     html += `<div class="row"><span class="label">צאת השבת (הבדלה)</span><span class="val">${fmtTime(z.tzeitHakochavim)}</span></div>`;
     const rows = [
       ['עלות השחר', z.alotHaShachar], ['הנץ החמה', z.sunrise],
@@ -554,9 +551,99 @@ function showDetail(dateObj){
   detailCard.innerHTML = html;
 }
 
-document.getElementById('prevBtn').addEventListener('click', ()=>{ current.setMonth(current.getMonth()-1); renderCalendarGrid(); });
-document.getElementById('nextBtn').addEventListener('click', ()=>{ current.setMonth(current.getMonth()+1); renderCalendarGrid(); });
+/* ---------- nav + mode toggle ---------- */
+document.getElementById('prevBtn').addEventListener('click', ()=>{
+  if(VIEW_MODE==='heb'){
+    const hd = new HDate(1, hebCursor.month, hebCursor.year).add(-1,'month');
+    hebCursor = {month: hd.getMonth(), year: hd.getFullYear()};
+  } else {
+    current.setMonth(current.getMonth()-1);
+  }
+  renderCalendarGrid();
+});
+document.getElementById('nextBtn').addEventListener('click', ()=>{
+  if(VIEW_MODE==='heb'){
+    const hd = new HDate(1, hebCursor.month, hebCursor.year).add(1,'month');
+    hebCursor = {month: hd.getMonth(), year: hd.getFullYear()};
+  } else {
+    current.setMonth(current.getMonth()+1);
+  }
+  renderCalendarGrid();
+});
 
+function updateModeButtons(){
+  document.getElementById('modeHebBtn').classList.toggle('active', VIEW_MODE==='heb');
+  document.getElementById('modeGregBtn').classList.toggle('active', VIEW_MODE==='greg');
+}
+function setViewMode(mode){
+  if(mode===VIEW_MODE) return;
+  if(mode==='heb'){
+    const hd = new HDate(current);
+    hebCursor = {month: hd.getMonth(), year: hd.getFullYear()};
+  } else {
+    const g = new HDate(1, hebCursor.month, hebCursor.year).greg();
+    current = new Date(g.getFullYear(), g.getMonth(), 1);
+  }
+  saveMode(mode);
+  updateModeButtons();
+  renderCalendarGrid();
+}
+document.getElementById('modeHebBtn').addEventListener('click', ()=>setViewMode('heb'));
+document.getElementById('modeGregBtn').addEventListener('click', ()=>setViewMode('greg'));
+
+/* ---------- location picker ---------- */
+const locSelect = document.getElementById('locSelect');
+LOCATIONS.forEach((loc,i)=>{
+  const opt = document.createElement('option');
+  opt.value = String(i); opt.textContent = loc.name;
+  locSelect.appendChild(opt);
+});
+const customOpt = document.createElement('option');
+customOpt.value = 'custom'; customOpt.textContent = 'מיקום מותאם אישית…';
+locSelect.appendChild(customOpt);
+
+function updateLocLabel(){ document.getElementById('locLabel').textContent = LOCATION.name; }
+
+function openLocDialog(){
+  const idx = LOCATIONS.findIndex(l=>l.name===LOCATION.name && l.lat===LOCATION.lat && l.lon===LOCATION.lon);
+  const customRow = document.getElementById('customLocRow');
+  if(idx>=0){
+    locSelect.value = String(idx);
+    customRow.hidden = true;
+  } else {
+    locSelect.value = 'custom';
+    customRow.hidden = false;
+    document.getElementById('customName').value = LOCATION.name;
+    document.getElementById('customLat').value = LOCATION.lat;
+    document.getElementById('customLon').value = LOCATION.lon;
+  }
+  document.getElementById('locDialog').showModal();
+}
+locSelect.addEventListener('change', ()=>{
+  document.getElementById('customLocRow').hidden = locSelect.value !== 'custom';
+});
+document.getElementById('locBtn').addEventListener('click', openLocDialog);
+document.getElementById('locCancelBtn').addEventListener('click', ()=> document.getElementById('locDialog').close());
+document.getElementById('locSaveBtn').addEventListener('click', ()=>{
+  let loc;
+  if(locSelect.value === 'custom'){
+    const name = document.getElementById('customName').value.trim() || 'מיקום מותאם אישית';
+    const lat = parseFloat(document.getElementById('customLat').value);
+    const lon = parseFloat(document.getElementById('customLon').value);
+    if(!isFinite(lat) || !isFinite(lon)){ alert('נא להזין קו רוחב וקו אורך תקינים'); return; }
+    loc = {name, lat, lon};
+  } else {
+    loc = LOCATIONS[parseInt(locSelect.value,10)];
+  }
+  saveLocation(loc);
+  updateLocLabel();
+  document.getElementById('locDialog').close();
+  showDetail(selected); // zmanim depend on LOCATION; holidays/parsha are unaffected
+});
+
+/* ---------- boot ---------- */
+updateModeButtons();
+updateLocLabel();
 renderCalendarGrid();
 window.addEventListener('load', () => {
   if(window.google && google.accounts) initGoogleAuth();
