@@ -89,19 +89,22 @@
   .err{color:var(--danger); font-size:12.5px; padding:6px 0;}
 
   .section-title{font-family:'Frank Ruhl Libre',serif;font-size:15px;font-weight:700;color:var(--text);margin:0 0 10px;}
-  details.card > summary, .zman-details > summary{
+  details.card > summary, .zman-details > summary, .jump-details > summary{
     cursor:pointer; list-style:none; display:flex; align-items:center; justify-content:space-between;
   }
-  details.card > summary::-webkit-details-marker, .zman-details > summary::-webkit-details-marker{display:none;}
-  details.card > summary::after, .zman-details > summary::after{
+  details.card > summary::-webkit-details-marker, .zman-details > summary::-webkit-details-marker, .jump-details > summary::-webkit-details-marker{display:none;}
+  details.card > summary::after, .zman-details > summary::after, .jump-details > summary::after{
     content:'▾'; color:var(--amber); font-size:11px; margin-inline-start:6px; transition:transform .15s;
   }
-  details.card[open] > summary::after, .zman-details[open] > summary::after{transform:rotate(180deg);}
+  details.card[open] > summary::after, .zman-details[open] > summary::after, .jump-details[open] > summary::after{transform:rotate(180deg);}
   details.card > summary{margin-bottom:0;}
   details.card[open] > summary{margin-bottom:10px;}
   .zman-details{margin-top:10px; border-top:1px solid var(--line); padding-top:8px;}
   .zman-details > summary{font-size:13px; font-weight:500; color:var(--text-dim); padding:2px 0;}
   .zman-details[open] > summary{margin-bottom:2px; color:var(--text);}
+  .jump-details{margin-bottom:10px;}
+  .jump-details > summary{font-size:12.5px; color:var(--text-dim); padding:4px;}
+  .jump-details[open] > summary{margin-bottom:6px;}
   .day-events{margin-bottom:2px;}
   .events-empty{font-size:13px; color:var(--text-faint); line-height:1.7;}
   .event-item{display:flex; gap:10px; padding:8px 2px; border-bottom:1px solid var(--line);}
@@ -142,18 +145,21 @@
       </div>
       <button id="nextBtn" aria-label="חודש קודם">›</button>
     </div>
-    <div class="jump-row" id="jumpRowGreg">
-      <select id="gregJumpDay" aria-label="יום לועזי"></select>
-      <select id="gregJumpMonth" aria-label="חודש לועזי"></select>
-      <select id="gregJumpYear" aria-label="שנה לועזית"></select>
-      <button class="btn" id="gregJumpBtn" type="button">עבור</button>
-    </div>
-    <div class="jump-row" id="jumpRowHeb" hidden>
-      <select id="hebJumpDay" aria-label="יום עברי"></select>
-      <select id="hebJumpMonth" aria-label="חודש עברי"></select>
-      <select id="hebJumpYear" aria-label="שנה עברית"></select>
-      <button class="btn" id="hebJumpBtn" type="button">עבור</button>
-    </div>
+    <details class="jump-details">
+      <summary>דילוג לתאריך</summary>
+      <div class="jump-row" id="jumpRowGreg">
+        <select id="gregJumpDay" aria-label="יום לועזי"></select>
+        <select id="gregJumpMonth" aria-label="חודש לועזי"></select>
+        <select id="gregJumpYear" aria-label="שנה לועזית"></select>
+        <button class="btn" id="gregJumpBtn" type="button">עבור</button>
+      </div>
+      <div class="jump-row" id="jumpRowHeb" hidden>
+        <select id="hebJumpDay" aria-label="יום עברי"></select>
+        <select id="hebJumpMonth" aria-label="חודש עברי"></select>
+        <select id="hebJumpYear" aria-label="שנה עברית"></select>
+        <button class="btn" id="hebJumpBtn" type="button">עבור</button>
+      </div>
+    </details>
     <div class="weekdays">
       <div>א</div><div>ב</div><div>ג</div><div>ד</div><div>ה</div><div>ו</div><div class="shab">ש</div>
     </div>
@@ -448,6 +454,15 @@ function gregRangeLabel(a,b){
   }
   return `${fmt(a)} ${a.getFullYear()} – ${fmt(b)} ${b.getFullYear()}`;
 }
+// Pure Hebrew-letter range (day/month/year all as gematriya) — no Western digits,
+// so it reads correctly under normal RTL without a direction override.
+function hebRangeLabel(a,b){ // a, b are HDate
+  const fmt = (hd)=> `${heDayStr(hd.getDate())} ב${hebMonthName(hd)}`;
+  if(a.getFullYear()===b.getFullYear()){
+    return `${fmt(a)} – ${fmt(b)} ${gematriya(a.getFullYear()%1000)}`;
+  }
+  return `${fmt(a)} ${gematriya(a.getFullYear()%1000)} – ${fmt(b)} ${gematriya(b.getFullYear()%1000)}`;
+}
 
 function renderCalendarGrid(){
   if(VIEW_MODE === 'heb') renderHebMonth(); else renderGregMonth();
@@ -492,8 +507,9 @@ function renderGregMonth(){
   const firstDay = new Date(year, month, 1);
   const lastDay = new Date(year, month+1, 0);
   titlePrimaryEl.textContent = `${GREG_MONTHS[month]} ${year}`;
-  const firstHe = new HDate(firstDay);
-  titleSecondaryEl.textContent = `${hebMonthName(firstHe)} ${gematriya(firstHe.getFullYear())}`;
+  // Pure Hebrew-letter text — normal RTL rendering, no digit/text bidi mixing.
+  titleSecondaryEl.style.direction = '';
+  titleSecondaryEl.textContent = hebRangeLabel(new HDate(firstDay), new HDate(lastDay));
 
   const dayInfo = buildDayInfo(firstDay, lastDay);
   CURRENT_DAY_INFO = dayInfo;
@@ -518,6 +534,9 @@ function renderHebMonth(){
   const lastGreg = new HDate(numDays, hMonth, hYear).greg();
 
   titlePrimaryEl.textContent = `${hebMonthName(firstHD)} ${gematriya(hYear)}`;
+  // Mixes Hebrew month names with Western digits and a dash — force ltr so the
+  // bidi algorithm doesn't reorder the two dates relative to each other.
+  titleSecondaryEl.style.direction = 'ltr';
   titleSecondaryEl.textContent = gregRangeLabel(firstGreg, lastGreg);
 
   const dayInfo = buildDayInfo(firstGreg, lastGreg);
