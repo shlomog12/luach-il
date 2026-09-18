@@ -3,9 +3,14 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
-<title>לוח שנה · לוח</title>
+<title>יומן עברי</title>
 <link rel="manifest" href="manifest.json">
 <meta name="theme-color" content="#141f33">
+<!-- iOS Safari ignores manifest.json's name/short_name for the "Add to Home
+     Screen" label — it needs this meta tag specifically (falls back to
+     <title> otherwise, which is where "לוח שנה" was coming from). -->
+<meta name="apple-mobile-web-app-title" content="יומן עברי">
+<meta name="apple-mobile-web-app-capable" content="yes">
 <link rel="icon" href="icon.svg" type="image/svg+xml">
 <link rel="icon" href="favicon-32.png" sizes="32x32" type="image/png">
 <!-- iOS Safari ignores manifest.json icons for "Add to Home Screen" — it needs this tag specifically. -->

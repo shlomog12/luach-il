@@ -1,6 +1,6 @@
 {
-  "name": "לוח שנה עברי · לועזי",
-  "short_name": "לוח",
+  "name": "יומן עברי",
+  "short_name": "יומן עברי",
   "start_url": "./index.html",
   "scope": "./",
   "display": "standalone",
