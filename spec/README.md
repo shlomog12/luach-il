@@ -22,9 +22,14 @@
 | [06-persistence-and-storage.md](functional/06-persistence-and-storage.md) | כל מפתחות ה-localStorage/sessionStorage |
 | [07-external-dependencies.md](functional/07-external-dependencies.md) | כל שירות/CDN חיצוני ולמה |
 
-### [`architecture/`](architecture/) — איך הקוד אמור להיבנות
-מפרט ארכיטקטורת יעד לפי עקרונות clean code ו-SOLID. **לא מומש עדיין** — זהו
-תכנון להפרדה נכונה של הקובץ המונוליטי `index.html` הנוכחי למודולים.
+### [`architecture/`](architecture/) — איך הקוד בנוי
+מפרט ארכיטקטורת היעד לפי עקרונות clean code ו-SOLID — **מומש במלואו** בקוד
+בפועל (`src/`), לא רק תכנון. ה-`index.html` הפך משלד + `<script>` מונוליטי
+אחד למבנה מודולרי (config/services/state/components/utils) לפי המפרט הזה
+בדיוק. שימו לב: המימוש בוצע כמכה אחת (עם בדיקות אוטומטיות מקיפות +
+screenshots ויזואליים לפני push), **לא** לפי שלבי ה-strangler-fig ההדרגתיים
+שתוארו במקור ב-[06-migration-plan.md](architecture/06-migration-plan.md) —
+זה תועד שם.
 
 | קובץ | תוכן |
 |---|---|

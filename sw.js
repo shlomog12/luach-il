@@ -1,7 +1,21 @@
-const CACHE = 'luach-v3';
+const CACHE = 'luach-v4';
 const ASSETS = [
   './', './index.html', './manifest.json', './icon.svg',
-  './icon-180.png', './icon-192.png', './icon-512.png', './favicon-32.png'
+  './icon-180.png', './icon-192.png', './icon-512.png', './favicon-32.png',
+  './styles/main.css',
+  './src/main.js',
+  './src/config/constants.js', './src/config/locations.js',
+  './src/services/HebrewCalendarService.js', './src/services/ZmanimService.js',
+  './src/services/ElevationService.js', './src/services/GoogleAuthService.js',
+  './src/services/GoogleCalendarService.js',
+  './src/state/ViewModeStore.js', './src/state/LocationStore.js',
+  './src/state/ZmanimDisclosureStore.js', './src/state/EventsStore.js',
+  './src/state/CalendarNavigationStore.js',
+  './src/components/ModeToggle.js', './src/components/NavControls.js',
+  './src/components/CalendarGrid.js', './src/components/DayDetailPanel.js',
+  './src/components/EventsListPanel.js', './src/components/LocationDialog.js',
+  './src/components/JumpToDatePanel.js', './src/components/AuthStatusBar.js',
+  './src/utils/dateFormat.js', './src/utils/safeStorage.js',
 ];
 
 self.addEventListener('install', (e) => {

@@ -1,5 +1,17 @@
 # מבנה קבצים מוצע
 
+> **עדכון: זה כבר המבנה בפועל**, לא רק הצעה — ראו `src/` ו-`styles/main.css`
+> בריפו. שני סטיות קטנות ומכוונות מהמפרט המקורי:
+> 1. נוסף `state/EventsStore.js` (לא היה ברשימת ה-4 stores המקורית) — משהו
+>    היה צריך להחזיק את אירועי Google Calendar כ-state משותף בין
+>    `CalendarGrid`/`DayDetailPanel`/`EventsListPanel`, מכיוון ש-
+>    `GoogleCalendarService` נשאר stateless (SRP) לפי המפרט.
+> 2. `HebrewCalendarService` מייצא מחדש את מחלקת `HDate` עצמה (לא רק API
+>    פונקציונלי כפי שנרמז ב-[02](02-module-responsibilities.md)) — נימוק
+>    מלא בראש `src/services/HebrewCalendarService.js`.
+> קומפוננטות מקבלות רק DOM refs דרך הבנאי (לא stores/services בהזרקה) —
+> ה-imports של ES modules כבר מספקים DI מספיק לגודל האפליקציה הזו.
+
 ## החלטה מרכזית: ES Modules טבעיים, לא bundler
 
 **לא** מוצע להכניס Webpack/Vite/esbuild או framework (React וכו').

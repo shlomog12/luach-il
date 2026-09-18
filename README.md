@@ -23,7 +23,9 @@
 
 ## סטאק טכני
 
-- **קובץ HTML יחיד** (`index.html`) — בלי build step, בלי framework.
+- **`index.html` (שלד) + `src/` (ES modules טבעיים) + `styles/main.css`** —
+  בלי build step, בלי bundler, בלי framework. מבנה מלא ב-
+  [`spec/architecture/01-target-file-structure.md`](spec/architecture/01-target-file-structure.md).
 - [`@hebcal/core`](https://github.com/hebcal/hebcal-es6) (טעון מ-CDN,
   גרסה מוצמדת) ללוח עברי, חגים, פרשה, וזמני היום.
 - Google Identity Services (token client, ללא `client_secret`) לחיבור
@@ -35,8 +37,10 @@
 
 ## פיתוח מקומי
 
-אין build step — פשוט פותחים את `index.html` בדפדפן, או מריצים שרת
-סטטי כלשהו (למשל `npx serve .`) כדי שה-service worker יעבוד כמו שצריך.
+אין build step — אבל **חובה** שרת HTTP מקומי (למשל `python3 -m http.server`
+או `npx serve .`) ולא פתיחת `index.html` ישירות מהדיסק (`file://`):
+דפדפנים חוסמים טעינת ES modules (`<script type="module">`) תחת `file://`
+מטעמי CORS, וגם ה-service worker דורש הגשה דרך HTTP/HTTPS כדי לעבוד.
 
 ## פריסה
 
