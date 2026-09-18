@@ -1,34 +1,35 @@
-# שמירה מקומית (Storage)
+# Local Storage
 
-כל השמירה היא **בצד הלקוח בלבד** — אין מסד נתונים/שרת. שני מנגנוני
-אחסון של הדפדפן בשימוש, בכוונה שונים לפי משך-חיים רצוי:
+All storage is **client-side only** — no database/server. Two browser
+storage mechanisms are used, deliberately differing by intended lifetime:
 
-## `localStorage` (נשמר בין ביקורים/הפעלות דפדפן)
+## `localStorage` (persists across visits/browser sessions)
 
-| מפתח | ערך | ברירת מחדל אם חסר | מי קורא/כותב |
+| Key | Value | Default if missing | Who reads/writes it |
 |---|---|---|---|
-| `luach_loc` | JSON: `{name, lat, lon, elevation}` | ירושלים | בורר מיקום |
-| `luach_mode` | `'heb'` או `'greg'` | `'heb'` | מתג תצוגה |
-| `luach_zman_open` | `'1'` או `'0'` | `'0'` (סגור) | disclosure "זמני היום" |
+| `luach_loc` | JSON: `{name, lat, lon, elevation}` | Jerusalem | Location picker |
+| `luach_mode` | `'heb'` or `'greg'` | `'heb'` | View-mode toggle |
+| `luach_zman_open` | `'1'` or `'0'` | `'0'` (closed) | "זמני היום" disclosure |
 
-- כל קריאה/כתיבה עטופה ב-`try/catch` — אם `localStorage` לא זמין (מצב
-  פרטי מחמיר, הרשאות דפדפן וכו') האפליקציה ממשיכה לעבוד עם ברירות מחדל,
-  בלי לזרוק שגיאה.
+- Every read/write is wrapped in `try/catch` — if `localStorage` is
+  unavailable (strict private-browsing mode, browser permissions, etc.) the
+  app keeps working with defaults, without throwing an error.
 
-## `sessionStorage` (נמחק בסגירת הטאב/דפדפן)
+## `sessionStorage` (cleared when the tab/browser closes)
 
-| מפתח | ערך | הערה |
+| Key | Value | Note |
 |---|---|---|
-| `gcal_token` | access token של Google OAuth | לא persist בכוונה — ביקור חדש מסתמך על רענון שקט, לא על טוקן ישן ששרד |
-| `gcal_token_exp` | timestamp תפוגה (מילישניות) | |
+| `gcal_token` | Google OAuth access token | Deliberately not persisted — a new visit relies on silent refresh, not a surviving old token |
+| `gcal_token_exp` | Expiry timestamp (milliseconds) | |
 
-## מה **לא** נשמר בשום מקום
+## What's **not** stored anywhere
 
-- "היום הנבחר" (`selected`) — מתאפס לכל היותר לתחילת החודש המוצג בכל
-  טעינת עמוד; אין זיכרון של "איפה הייתי בפעם הקודמת".
-- מצב פתוח/סגור של "דילוג לתאריך" ושל כרטיס "אירועים" — לגבי כרטיס
-  האירועים זה לא רלוונטי כי הוא לא נבנה-מחדש בין אינטראקציות (ראו
-  [05](05-ui-and-accessibility.md)); לגבי "דילוג לתאריך" זו החלטה מכוונת
-  שתמיד יתחיל מכווץ.
-- אירועי Google Calendar עצמם — נשלפים מחדש בכל טעינה/רענון, לא נשמרים
-  מקומית בין ביקורים.
+- The "selected day" (`selected`) — resets at most to the start of the
+  displayed month on every page load; there's no memory of "where I was last
+  time".
+- The open/closed state of "Jump to date" and of the "Events" card —
+  irrelevant for the events card since it isn't rebuilt between interactions
+  (see [05](05-ui-and-accessibility.md)); for "Jump to date" it's a
+  deliberate decision that it always starts collapsed.
+- Google Calendar events themselves — refetched on every load/refresh, not
+  stored locally between visits.

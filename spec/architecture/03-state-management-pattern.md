@@ -1,20 +1,21 @@
-# תבנית ניהול State: Store + Pub/Sub
+# State Management Pattern: Store + Pub/Sub
 
-## הבעיה בקוד הקיים
+## The problem in the pre-refactor code
 
-מצבים כמו `VIEW_MODE`, `LOCATION`, `current`, `hebCursor` הם משתנים
-גלובליים (`let`) שכל פונקציה יכולה לשנות ישירות. כל מקום שמשנה אותם
-צריך **לזכור בעצמו** לקרוא ל-`renderCalendarGrid()` (או פונקציה דומה)
-אחרי השינוי — אין שום מנגנון שאוכף את זה. זו הסיבה, למשל, שבאגים כמו
-"שכחתי לרענן X אחרי ששיניתי Y" קלים לקרות ככל שהאפליקציה גדלה.
+State like `VIEW_MODE`, `LOCATION`, `current`, `hebCursor` were global
+(`let`) variables any function could mutate directly. Every place that
+changed them had to **remember on its own** to call `renderCalendarGrid()`
+(or a similar function) afterward — there was no mechanism enforcing that.
+This is, for example, why bugs like "I forgot to refresh X after changing
+Y" become easy to hit as an app grows.
 
-## הפתרון: Store קטן עם `subscribe`
+## The solution: a small Store with `subscribe`
 
-בלי framework (Redux/MobX/Zustand) — תבנית מינימלית, טבעית ל-vanilla
-JS, שכל store מיישם בעצמו (~15 שורות קוד):
+Without a framework (Redux/MobX/Zustand) — a minimal pattern, natural to
+vanilla JS, that each store implements itself (~15 lines of code):
 
 ```js
-// דוגמה קונספטואלית — לא קוד סופי
+// Conceptual example — not final code
 export function createStore(initialValue, { persist } = {}) {
   let value = persist?.load() ?? initialValue;
   const listeners = new Set();
@@ -34,51 +35,55 @@ export function createStore(initialValue, { persist } = {}) {
 }
 ```
 
-כל `state/*Store.js` (ראו [02](02-module-responsibilities.md)) הוא
-עטיפה דקה סביב `createStore`, עם לוגיקת ה-persist הספציפית שלו (אם יש)
-ולפעמים API נוסף ספציפי לתחום (למשל `CalendarNavigationStore` צריך גם
-`navigateMonth(direction)`, לא רק `set`).
+Every `state/*Store.js` (see [02](02-module-responsibilities.md)) is a thin
+wrapper around `createStore`, with its own persistence logic (if any) and
+sometimes extra domain-specific API (e.g. `CalendarNavigationStore` also
+needs `navigateMonth(direction)`, not just `set`).
 
-## זרימת מידע: חד-כיוונית
+## Data flow: one-directional
 
 ```
-פעולת משתמש (קליק על חץ/תא/כפתור)
+User action (click an arrow/cell/button)
         │
         ▼
-  Component קורא ל-Store.set(...) או ל-Service
+  Component calls Store.set(...) or a Service
         │
         ▼
-  Store מעדכן ערך פנימי + (אם persist) שומר ל-localStorage
+  Store updates its internal value + (if persisted) saves to localStorage
         │
         ▼
-  Store קורא לכל ה-listeners הרשומים (subscribe)
+  Store calls every registered listener (subscribe)
         │
         ▼
-  כל Component שרשום מתעדכן/מרנדר את עצמו מחדש
+  Every registered Component updates/re-renders itself
 ```
 
-**component לעולם לא קורא ישירות לפונקציית render של component אחר.**
-התקשורת היחידה בין קומפוננטות היא **דרך שינוי state משותף** (store)
-שהן שתיהן רשומות עליו, או דרך callback מפורש שהוזרק (ראו
-[04-component-design.md](04-component-design.md)).
+**A component never calls another component's render function directly.**
+The only communication between components is **through shared state**
+(a store) both are subscribed to, or through an explicit injected callback
+(see [04-component-design.md](04-component-design.md)).
 
-## דוגמה: איך זה פותר את הבאג הפוטנציאלי
+## Example: how this solves the potential bug
 
-היום: `setViewMode('heb')` צריך "לזכור" לקרוא ל-`updateModeButtons()`
-**וגם** ל-`renderCalendarGrid()` **וגם** (מאז שהוספנו syncJumpDefaults)
-לעדכן את בקרי הדילוג. שלוש קריאות ידניות, בסדר מסוים, שקל לשכוח אחת מהן
-כשמוסיפים פיצ'ר רביעי.
+Before: `setViewMode('heb')` had to "remember" to call
+`updateModeButtons()` **and** `renderCalendarGrid()` **and** (once
+`syncJumpDefaults` was added) update the jump controls. Three manual calls,
+in a specific order, and it's easy to forget one of them when a fourth
+feature is added.
 
-במבנה המוצע: `ModeToggle` קורא ל-`ViewModeStore.set('heb')` בלבד.
-`CalendarGrid`, `NavControls`, ו-`JumpToDatePanel` **כל אחד subscribe
-בעצמו** ל-`ViewModeStore` בזמן האתחול (ב-`main.js`), ומרענן את עצמו
-כשהערך משתנה — בלי ש-`ModeToggle` בכלל צריך לדעת שהם קיימים. הוספת
-קומפוננטה רביעית שתלויה במצב התצוגה = `subscribe` נוסף במקום שלה, אפס
-שינוי בקוד הקיים (זה בדיוק OCP, ראו [00](00-principles.md)).
+In the store-based structure: `ModeToggle` only calls
+`ViewModeStore.set('heb')`. `CalendarGrid`, `NavControls`, and
+`JumpToDatePanel` **each subscribe themselves** to `ViewModeStore` at
+startup (in `main.js`), and refresh themselves when the value changes —
+without `ModeToggle` needing to know they exist at all. Adding a fourth
+component that depends on the view mode = one more `subscribe` call in its
+own place, zero changes to existing code (this is exactly OCP, see
+[00](00-principles.md)).
 
-## מתי **לא** להשתמש ב-store
+## When **not** to use a store
 
-state שהוא "מקומי לחלוטין" לקומפוננטה אחת ולא משפיע על שום קומפוננטה
-אחרת (למשל: איזו אופציה נבחרת כרגע ב-`<select>` בתוך דיאלוג המיקום, לפני
-שנלחץ "שמירה") — נשאר משתנה רגיל בתוך הקומפוננטה עצמה, **לא** צריך store
-ייעודי. Store מיועד רק ל-state ש**משותף** בין כמה חלקים של האפליקציה.
+State that's "entirely local" to one component and doesn't affect any other
+component (e.g. which option is currently selected in a `<select>` inside
+the location dialog, before "Save" is clicked) — stays a regular variable
+inside the component itself, **no** dedicated store needed. A store is only
+for state that's **shared** across multiple parts of the app.

@@ -1,63 +1,67 @@
-# מבנה קבצים מוצע
+# Proposed File Structure
 
-> **עדכון: זה כבר המבנה בפועל**, לא רק הצעה — ראו `src/` ו-`styles/main.css`
-> בריפו. שני סטיות קטנות ומכוונות מהמפרט המקורי:
-> 1. נוסף `state/EventsStore.js` (לא היה ברשימת ה-4 stores המקורית) — משהו
->    היה צריך להחזיק את אירועי Google Calendar כ-state משותף בין
->    `CalendarGrid`/`DayDetailPanel`/`EventsListPanel`, מכיוון ש-
->    `GoogleCalendarService` נשאר stateless (SRP) לפי המפרט.
-> 2. `HebrewCalendarService` מייצא מחדש את מחלקת `HDate` עצמה (לא רק API
->    פונקציונלי כפי שנרמז ב-[02](02-module-responsibilities.md)) — נימוק
->    מלא בראש `src/services/HebrewCalendarService.js`.
-> קומפוננטות מקבלות רק DOM refs דרך הבנאי (לא stores/services בהזרקה) —
-> ה-imports של ES modules כבר מספקים DI מספיק לגודל האפליקציה הזו.
+> **Update: this is already the actual structure**, not just a proposal —
+> see `src/` and `styles/main.css` in the repo. Two small, deliberate
+> deviations from the original spec:
+> 1. A `state/EventsStore.js` was added (not in the original 4-store list)
+>    — something had to hold the Google Calendar events as shared state
+>    between `CalendarGrid`/`DayDetailPanel`/`EventsListPanel`, since
+>    `GoogleCalendarService` stays stateless (SRP) per the spec.
+> 2. `HebrewCalendarService` re-exports the `HDate` class itself (not just a
+>    functional API as implied in [02](02-module-responsibilities.md)) — full
+>    rationale at the top of `src/services/HebrewCalendarService.js`.
+> Components receive only DOM refs via their constructor (not
+> stores/services by injection) — ES modules' own imports already provide
+> enough DI for an app this size.
 
-## החלטה מרכזית: ES Modules טבעיים, לא bundler
+## Core decision: native ES Modules, no bundler
 
-**לא** מוצע להכניס Webpack/Vite/esbuild או framework (React וכו').
-הרציונל:
+Introducing Webpack/Vite/esbuild or a framework (React, etc.) is **not**
+proposed. Rationale:
 
-- הפריסה היום היא קבצים סטטיים גולמיים דרך Netlify, בלי שום build
-  command — זו פשטות ששווה לשמר.
-- דפדפנים מודרניים (Chrome, Safari — היעד המוצהר של האפליקציה) תומכים
-  ב-`<script type="module">` וב-`import`/`export` יחסיים באופן טבעי,
-  ללא כלי build.
-- האפליקציה קטנה מספיק (לא עשרות אלפי שורות) שהיתרונות של bundler
-  (tree-shaking, code-splitting) לא מצדיקים את מורכבות התחזוקה הנוספת
-  (package.json עם dev dependencies, קובץ קונפיג build, שלב build ב-CI).
+- Deployment today is raw static files via Netlify, with no build command at
+  all — that's a simplicity worth preserving.
+- Modern browsers (Chrome, Safari — the app's stated target) natively
+  support `<script type="module">` and relative `import`/`export`, with no
+  build tooling.
+- The app is small enough (not tens of thousands of lines) that a bundler's
+  benefits (tree-shaking, code-splitting) don't justify the added
+  maintenance complexity (a package.json with dev dependencies, a build
+  config file, a CI build step).
 
-אם בעתיד האפליקציה תגדל משמעותית (עשרות קומפוננטות, טעינה איטית), אפשר
-לשקול מחדש — אך זו **לא** ברירת המחדל הנכונה כרגע.
+If the app grows significantly in the future (dozens of components, slow
+loading), this could be reconsidered — but it's **not** the right default
+right now.
 
-## מבנה תיקיות מוצע
+## Proposed folder structure
 
 ```
 /
-├── index.html              # שלד בלבד: <head>, markup, <script type="module" src="src/main.js">
+├── index.html              # shell only: <head>, markup, <script type="module" src="src/main.js">
 ├── manifest.json
 ├── sw.js
 ├── icon.svg
 ├── src/
-│   ├── main.js              # composition root — היחיד שמרכיב הכל יחד
+│   ├── main.js              # composition root — the only file that wires everything together
 │   │
 │   ├── config/
-│   │   ├── constants.js      # storage keys, טווחי שנים, גרסת CDN מוצמדת וכו'
-│   │   └── locations.js      # מערך ה-LOCATIONS (20 המיקומים המוגדרים מראש)
+│   │   ├── constants.js      # storage keys, year spans, pinned CDN version, etc.
+│   │   └── locations.js      # the LOCATIONS array (20 preset locations)
 │   │
-│   ├── services/             # לוגיקה עסקית טהורה — לא נוגעים ב-DOM בכלל
-│   │   ├── HebrewCalendarService.js   # עוטף HDate/HebrewCalendar
-│   │   ├── ZmanimService.js           # עוטף Location/Zmanim
+│   ├── services/             # pure business logic — never touches the DOM
+│   │   ├── HebrewCalendarService.js   # wraps HDate/HebrewCalendar
+│   │   ├── ZmanimService.js           # wraps Location/Zmanim
 │   │   ├── ElevationService.js        # Open-Meteo lookup
-│   │   ├── GoogleAuthService.js       # token client, רענון שקט
-│   │   └── GoogleCalendarService.js   # שליפת אירועים
+│   │   ├── GoogleAuthService.js       # token client, silent refresh
+│   │   └── GoogleCalendarService.js   # fetches events
 │   │
-│   ├── state/                 # "stores" — state + פרסום שינויים (ראו 03)
+│   ├── state/                 # "stores" — state + change notifications (see 03)
 │   │   ├── ViewModeStore.js
 │   │   ├── LocationStore.js
 │   │   ├── CalendarNavigationStore.js  # current/hebCursor/selected
 │   │   └── ZmanimDisclosureStore.js
 │   │
-│   ├── components/            # רכיבי UI — כל אחד מרנדר משהו אחד (ראו 04)
+│   ├── components/            # UI elements — each one renders exactly one thing (see 04)
 │   │   ├── CalendarGrid.js
 │   │   ├── DayDetailPanel.js
 │   │   ├── EventsListPanel.js
@@ -69,47 +73,48 @@
 │   │
 │   └── utils/
 │       ├── dateFormat.js      # toKey, fmtTime, gregRangeLabel, hebRangeLabel
-│       └── safeStorage.js     # עטיפת try/catch אחידה ל-localStorage/sessionStorage
+│       └── safeStorage.js     # a uniform try/catch wrapper for localStorage/sessionStorage
 │
 ├── styles/
-│   └── main.css               # מחולץ מה-<style> הנוכחי בתוך index.html
+│   └── main.css               # extracted from the <style> block formerly inside index.html
 │
-└── spec/                       # המסמכים האלה
+└── spec/                       # these documents
     ├── functional/
     └── architecture/
 ```
 
-## כללי מיפוי (מה עובר לאן)
+## Mapping rules (what moves where)
 
-| בקוד הקיים | עובר ל- |
+| In the pre-refactor code | Moves to |
 |---|---|
 | `HDate`, `hebMonthName`, `buildDayInfo`, `HOLIDAY_FLAGS` | `services/HebrewCalendarService.js` |
-| `getZmanim`, `LOCATIONS`, קבועי זווית | `services/ZmanimService.js` + `config/locations.js` |
-| קריאת `open-meteo` | `services/ElevationService.js` |
-| `initGoogleAuth`, `setAuthUI`, ניהול טוקן | `services/GoogleAuthService.js` |
-| `loadEvents`, פרסינג האירועים | `services/GoogleCalendarService.js` |
+| `getZmanim`, `LOCATIONS`, angle constants | `services/ZmanimService.js` + `config/locations.js` |
+| The `open-meteo` fetch call | `services/ElevationService.js` |
+| `initGoogleAuth`, `setAuthUI`, token management | `services/GoogleAuthService.js` |
+| `loadEvents`, event parsing | `services/GoogleCalendarService.js` |
 | `loadLocation`/`saveLocation` | `state/LocationStore.js` |
 | `loadMode`/`saveMode`/`VIEW_MODE` | `state/ViewModeStore.js` |
 | `current`, `hebCursor`, `selected` | `state/CalendarNavigationStore.js` |
 | `loadZmanOpen`/`saveZmanOpen` | `state/ZmanimDisclosureStore.js` |
 | `renderCalendarGrid`, `renderGregMonth`, `renderHebMonth`, `renderDayCell` | `components/CalendarGrid.js` |
-| `showDetail` (חלק ה-DOM) | `components/DayDetailPanel.js` |
+| `showDetail` (the DOM-building part) | `components/DayDetailPanel.js` |
 | `renderEvents` | `components/EventsListPanel.js` |
-| דיאלוג המיקום | `components/LocationDialog.js` |
-| בקרי הדילוג לתאריך | `components/JumpToDatePanel.js` |
+| The location dialog | `components/LocationDialog.js` |
+| The jump-to-date controls | `components/JumpToDatePanel.js` |
 | `toKey`, `fmtTime`, `gregRangeLabel`, `hebRangeLabel` | `utils/dateFormat.js` |
 
-## איך `index.html` נראה אחרי הפירוק
+## What `index.html` looks like after the split
 
-`index.html` נשאר קובץ ה-shell: כל ה-`<head>`, ה-CSS (או `<link>` ל-
-`styles/main.css`), וה-markup הסטטי (הכרטיסים, ה-dialog, וכו') — אבל
-**בלי שום `<script>` עם לוגיקה בתוכו**. השורה היחידה הרלוונטית:
+`index.html` stays the shell file: all of the `<head>`, the CSS (a `<link>`
+to `styles/main.css`), and the static markup (the cards, the dialog, etc.)
+— but **with no `<script>` containing any logic**. The one relevant line:
 
 ```html
 <script type="module" src="./src/main.js"></script>
 ```
 
-`main.js` הוא ה-**composition root**: הקובץ היחיד שמכיר את *כל* המודולים,
-יוצר instances, מזריק תלויות (dependency injection ידני — לא צריך
-framework DI), ומחבר components ל-stores. שום קובץ אחר לא אמור לייבא
-ישירות את כל הפרויקט — רק את מה שהוא צריך.
+`main.js` is the **composition root**: the only file that knows about *every*
+module, creates instances, wires dependencies (manual dependency
+injection — no framework DI needed), and connects components to stores. No
+other file should import the whole project directly — only what it actually
+needs.

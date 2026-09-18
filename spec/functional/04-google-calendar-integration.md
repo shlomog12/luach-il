@@ -1,60 +1,70 @@
-# סנכרון עם Google Calendar
+# Google Calendar Sync
 
-## מטרת הפיצ'ר
+## Feature goal
 
-אם משתמש מוסיף אירוע ביומן ה-Google שלו, האירוע **מופיע גם בלוח האתר**
-— בלי צורך בפעולה נוספת מצד המשתמש מעבר לפתיחת האתר.
+If a user adds an event to their Google Calendar, the event **also appears on
+the site's calendar** — with no action needed from the user beyond opening
+the site.
 
-## אימות (OAuth)
+## Authentication (OAuth)
 
-- שימוש ב-**Google Identity Services** (`google.accounts.oauth2`), זרימת
-  **token client** (implicit), **לא** authorization-code flow — כלומר
-  **אין** `client_secret` בכלל, ואין Authorized redirect URIs (רק
-  Authorized JavaScript origins).
-- Scope: `https://www.googleapis.com/auth/calendar.readonly` — קריאה
-  בלבד. אין יכולת להוסיף/לערוך אירועים מהאתר. (אם ירצו כתיבה — יש להרחיב
-  scope במודע ל-`.../auth/calendar` ולהוסיף טופס יצירת אירוע; זו החלטת
-  מוצר נפרדת, לא ממומשת.)
-- **רענון שקט בכל כניסה**: בכל טעינת עמוד, האפליקציה מנסה לקבל טוקן
-  **בלי פופאפ** (`prompt: ''`) אוטומטית — כל עוד המשתמש עדיין מחובר
-  לחשבון Google באותו דפדפן וכבר אישר גישה בעבר. אם זה מצליח, האירועים
-  נטענים ומוצגים **ללא כל אינטראקציה מהמשתמש**.
-- אם הרענון השקט נכשל (למשל: אין session פעיל של גוגל בדפדפן, או שההרשאה
-  בוטלה) — מוצג כפתור "התחבר עם Google" כגיבוי ידני חד-פעמי (`prompt:
-  'consent'`).
-- הטוקן והתפוגה שלו נשמרים ב-`sessionStorage` (נמחק בסגירת הטאב/דפדפן,
-  **לא** persist ל-session הבא בכוונה — הרענון השקט הוא זה שדואג לכניסה
-  הבאה).
+- Uses **Google Identity Services** (`google.accounts.oauth2`), the **token
+  client** (implicit) flow — **not** the authorization-code flow — meaning
+  there's **no** `client_secret` at all, and no Authorized redirect URIs
+  (only Authorized JavaScript origins).
+- Scope: `https://www.googleapis.com/auth/calendar.readonly` — read only.
+  No ability to add/edit events from the site. (For write access, the scope
+  would need to be consciously extended to `.../auth/calendar` plus an
+  event-creation form added; that's a separate product decision, not
+  implemented.)
+- **Silent refresh on every visit**: on every page load, the app tries to get
+  a token **with no popup** (`prompt: ''`) automatically — as long as the
+  user is still signed into their Google account in that browser and has
+  already granted access before. If that succeeds, events load and display
+  **with zero user interaction**.
+- If the silent refresh fails (e.g. no active Google session in the browser,
+  or access was revoked) — a "Connect with Google" button is shown as a
+  one-time manual fallback (`prompt: 'consent'`).
+- The token and its expiry are stored in `sessionStorage` (cleared when the
+  tab/browser closes, deliberately **not** persisted to the next session —
+  the silent refresh is what handles the next visit).
 
-## שליפת אירועים
+## Fetching events
 
-- לאחר קבלת טוקן תקף: קריאה ל-`calendarList` (כל היומנים של המשתמש), ואז
-  קריאה מקבילה (`Promise.all`) ל-`events` **לכל יומן**, בטווח **60 הימים
-  הקרובים מרגע הטעינה** (לא כולל עבר), עד 50 אירועים ליומן.
-- אירועים מבוטלים (`status === 'cancelled'`) מסוננים החוצה.
-- כל האירועים מכל היומנים ממוזגים למערך אחד, ממוינים כרונולוגית.
-- כישלון בשליפת יומן בודד **לא** מפיל את כל התהליך — אותו יומן פשוט מדולג.
+- After obtaining a valid token: call `calendarList` (all of the user's
+  calendars), then a parallel call (`Promise.all`) to `events` **for every
+  calendar**, over the **60 days ahead from load time** (not including the
+  past), up to 50 events per calendar.
+- Cancelled events (`status === 'cancelled'`) are filtered out.
+- All events from all calendars are merged into one array, sorted
+  chronologically.
+- A failure fetching one calendar **doesn't** bring down the whole process —
+  that calendar is simply skipped.
 
-## היכן האירועים מוצגים
+## Where events are shown
 
-1. **תא ביומן (grid)**: עד 2 צ'יפים לכל יום (חגים קודם, אז אירועים; ראו
-   [02](02-calendar-views-and-navigation.md)), עם "+N נוספים" בעומס.
-2. **כרטיס פירוט יום**: כל האירועים של אותו יום ספציפי, עם שעה (אם לא
-   "כל היום") וכותרת מלאה — תמיד גלוי (לא מכווץ), חלק מבלוק "אירועי היום"
-   יחד עם חגים/פרשה.
-3. **כרטיס "אירועים ביומן Google" (60 הימים הקרובים)**: רשימה מלאה, ממוינת
-   כרונולוגית, בתוך `<details>` **מכווץ כברירת מחדל**.
+1. **Calendar cell (grid)**: up to 2 chips per day (holidays first, then
+   events; see [02](02-calendar-views-and-navigation.md)), with "+N more"
+   under load.
+2. **Day-detail card**: all of that specific day's events, with time (if not
+   "all day") and full title — always visible (not collapsed), part of the
+   "day's events" block alongside holidays/parsha.
+3. **"Events in Google Calendar" card (next 60 days)**: a full,
+   chronologically sorted list, inside a `<details>` **collapsed by
+   default**.
 
-## מיקום ובולטות בקר האימות
+## Auth control placement and prominence
 
-בקר האימות (סטטוס חיבור + כפתור) **אינו** בראש העמוד/בכרטיס בולט —
-ממוקם כשורה קטנה ומעוטת-עיצוב, **אחרי** הלוח, כרטיס הפירוט וכרטיס
-האירועים, ממש לפני הערת השוליים בתחתית העמוד. הרציונל: הלוח עצמו הוא
-הדבר החשוב ביותר במסך, לא סטטוס החיבור לגוגל.
+The auth control (connection status + button) is **not** at the top of the
+page/in a prominent card — it's placed as a small, low-key row **after** the
+calendar, the detail card, and the events card, right before the page
+footer. Rationale: the calendar itself is the most important thing on
+screen, not the Google connection status.
 
-## מה קורה בלי חיבור
+## What happens without a connection
 
-- אם `CLIENT_ID` לא הוגדר בקוד: מוצגת הודעה מתאימה, הכפתור מנוטרל.
-- אם המשתמש לא מחובר: כרטיס האירועים מציג הודעת "התחברו כדי לראות את
-  האירועים שלכם", ותא היומן פשוט לא מציג צ'יפים כחולים (חגים עדיין
-  מוצגים כרגיל).
+- If `CLIENT_ID` isn't configured in the code: an appropriate message is
+  shown, the button is disabled.
+- If the user isn't connected: the events card shows a "sign in to see your
+  events" message, and calendar cells simply don't show blue chips
+  (holidays still display normally).

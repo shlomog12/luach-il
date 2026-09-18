@@ -1,83 +1,87 @@
-# פירוק לרכיבי UI (Components)
+# Breaking Down UI Components
 
-## מה נחשב "קומפוננטה" כאן
+## What counts as a "component" here
 
-בלי framework — קומפוננטה היא class/factory function שמקבל **container
-DOM אחד** ואחראי על כל מה שקורה בתוכו: רינדור, עדכון, ורישום event
-listeners **רק על אלמנטים בתוך הקונטיינר שלו**. שום קומפוננטה לא נוגעת
-ב-DOM מחוץ לקונטיינר שהוקצה לה.
+Without a framework — a component is a class/factory function that receives
+**one DOM container** and is responsible for everything that happens inside
+it: rendering, updating, and registering event listeners **only on elements
+within its assigned container**. No component touches DOM outside the
+container it was given.
 
-## חוזה אחיד (contract) לכל קומפוננטה
+## Shared contract for every component
 
 ```
-constructor(container, dependencies)  // dependencies = stores/services שהיא צריכה
-render()                               // מצייר/מעדכן את ה-DOM הפנימי שלה
-destroy()                              // (אופציונלי) מבטל subscriptions, מנקה listeners
+constructor(container, dependencies)  // dependencies = the stores/services it needs
+render()                               // draws/updates its internal DOM
+destroy()                              // (optional) cancels subscriptions, cleans up listeners
 ```
 
-קומפוננטה **לא** קוראת ל-`document.getElementById` בעצמה כדי למצוא את
-ה-container שלה — הוא מוזרק דרך הבנאי מ-`main.js`. זה מה שהופך אותה
-לניתנת-לבדיקה: אפשר ליצור אותה בבדיקה עם container מלאכותי (JSDOM) בלי
-לטעון את כל העמוד.
+A component **doesn't** call `document.getElementById` itself to find its
+container — it's injected via the constructor from `main.js`. This is what
+makes it testable: it can be created in a test with an artificial container
+(JSDOM) without loading the whole page.
 
-## רשימת הקומפוננטות ואחריותן
+## The component list and their responsibilities
 
 ### `CalendarGrid`
-מרנדר את לוח החודש (weekday header + תאי הימים). תלוי ב-
-`CalendarNavigationStore`, `ViewModeStore`, `HebrewCalendarService`,
-ובמערך האירועים הנוכחי (מוזרק/נקרא מ-`GoogleCalendarService` cache).
-כשלוחצים על תא — **לא** קורא ישירות ל-`DayDetailPanel.render()`; במקום
-זאת קורא `CalendarNavigationStore.setSelected(date)`, ו-`DayDetailPanel`
-עצמו רשום (subscribe) לשינוי הזה.
+Renders the month grid (weekday header + day cells). Depends on
+`CalendarNavigationStore`, `ViewModeStore`, `HebrewCalendarService`, and the
+current events array (injected/read from a `GoogleCalendarService` cache).
+When a cell is clicked — it does **not** call `DayDetailPanel.render()`
+directly; instead it calls `CalendarNavigationStore.setSelected(date)`, and
+`DayDetailPanel` itself is subscribed to that change.
 
 ### `DayDetailPanel`
-מרנדר את כרטיס "פירוט היום": בלוק אירועים/חגים תמיד-גלוי + `<details>`
-זמני היום. תלוי ב-`CalendarNavigationStore` (מה היום הנבחר),
-`HebrewCalendarService`, `ZmanimService`, `LocationStore`,
-`ZmanimDisclosureStore` (לזכור אם ה-details פתוח), ומערך אירועי גוגל.
-**לא** יודע איך משיגים אירועי גוגל — רק קורא מה-cache שהוזרק אליו.
+Renders the "day detail" card: an always-visible events/holidays block +
+a `<details>` for daily zmanim. Depends on `CalendarNavigationStore` (which
+day is selected), `HebrewCalendarService`, `ZmanimService`, `LocationStore`,
+`ZmanimDisclosureStore` (to remember whether the details are open), and the
+Google events array. **Doesn't** know how Google events are obtained — only
+reads from the cache injected into it.
 
 ### `EventsListPanel`
-מרנדר את כרטיס "אירועים ביומן Google" (הרשימה של 60 הימים). תלוי ב-
-`GoogleCalendarService` (או ב-cache משותף שהיא ממלאת). **בעל אחריות
-בלעדית** על ה-`<details>` שלו — אין קומפוננטה אחרת שנוגעת בו.
+Renders the "Events in Google Calendar" card (the 60-day list). Depends on
+`GoogleCalendarService` (or a shared cache it populates). Has **exclusive
+ownership** of its `<details>` — no other component touches it.
 
 ### `LocationDialog`
-מרנדר את דיאלוג בחירת/עריכת מיקום. תלוי ב-`LocationStore` (לקרוא/לכתוב)
-ו-`ElevationService` (לשליפת גובה למיקום מותאם-אישית). קורא
-`LocationStore.set(...)` בסיום — **לא** קורא ישירות ל-`CalendarGrid`
-או ל-`DayDetailPanel` כדי "לרענן זמנים"; הם מתעדכנים בעצמם דרך ה-
-subscribe שלהם ל-`LocationStore`.
+Renders the location picker/edit dialog. Depends on `LocationStore` (read/
+write) and `ElevationService` (to look up elevation for a custom location).
+Calls `LocationStore.set(...)` when done — it does **not** call
+`CalendarGrid` or `DayDetailPanel` directly to "refresh the times"; they
+update themselves via their own subscription to `LocationStore`.
 
 ### `JumpToDatePanel`
-מרנדר את שני בקרי הדילוג (עברי/לועזי) בתוך `<details>` משותף. תלוי ב-
-`ViewModeStore` (איזה בקר להציג), `CalendarNavigationStore` (לקרוא את
-היום הנבחר לצורך ברירות מחדל, ולכתוב אליו בלחיצת "עבור"),
-`HebrewCalendarService` (לבניית רשימות היום/חודש/שנה). subscribe הן
-ל-`ViewModeStore` והן ל-`CalendarNavigationStore` — כשאחד מהם משתנה,
-מסנכרן מחדש את ברירות המחדל של ה-dropdowns.
+Renders the two jump controls (Hebrew/Gregorian) inside a shared
+`<details>`. Depends on `ViewModeStore` (which control to show),
+`CalendarNavigationStore` (to read the selected day for defaults, and to
+write to it on "Go"), `HebrewCalendarService` (to build the day/month/year
+lists). Subscribes to both `ViewModeStore` and `CalendarNavigationStore` —
+when either changes, it re-syncs the dropdowns' defaults.
 
 ### `ModeToggle`
-שני הכפתורים "עברי"/"לועזי". תלוי רק ב-`ViewModeStore`. הרכיב הכי פשוט —
-דוגמה טובה למינימום ההכרחי של קומפוננטה.
+The two "Hebrew"/"Gregorian" buttons. Depends only on `ViewModeStore`. The
+simplest component — a good example of the minimum a component needs.
 
 ### `NavControls`
-חצי הניווט בין חודשים + הכותרת (ראשי/משני). תלוי ב-`CalendarNavigationStore`,
-`ViewModeStore`, `HebrewCalendarService` (לבניית טווחי התאריכים לכותרת).
-אחראי גם על ההחלטה איזה כיוון (`ltr`/ברירת מחדל) נדרש לשדה המשני —
-ראו [00-principles.md](00-principles.md) וההערה על bidi
-ב-[../functional/05-ui-and-accessibility.md](../functional/05-ui-and-accessibility.md).
+The month-navigation arrows + the title (primary/secondary). Depends on
+`CalendarNavigationStore`, `ViewModeStore`, `HebrewCalendarService` (to
+build the date ranges for the title). Also responsible for deciding which
+direction (`ltr`/default) the secondary field needs — see
+[00-principles.md](00-principles.md) and the bidi note in
+[../functional/05-ui-and-accessibility.md](../functional/05-ui-and-accessibility.md).
 
 ### `AuthStatusBar`
-שורת החיבור לגוגל בתחתית העמוד. תלוי ב-`GoogleAuthService` בלבד
-(subscribe ל-`onAuthChange`). **לא** יודע כלום על אירועים/לוח — תפקידו
-מוגבל לסטטוס + כפתור.
+The Google-connection row at the bottom of the page. Depends only on
+`GoogleAuthService` (subscribes to `onAuthChange`). Knows **nothing** about
+events/the calendar — its job is limited to status + a button.
 
-## עקרון: קומפוננטות לא מדברות ישירות אחת עם השנייה
+## Principle: components don't talk directly to each other
 
-הכלל החשוב ביותר בפרק הזה: **התקשורת בין קומפוננטות עוברת תמיד דרך
-state משותף (stores) או events, לא דרך קריאות ישירות**. אם קומפוננטה A
-"צריכה שקומפוננטה B תתעדכן" — הפתרון הנכון הוא ששתיהן ירשמו את עצמן
-לאותו store, לא ש-A תחזיק reference ל-B ותקרא ל-`B.render()` ישירות. זה
-מה שמאפשר להוסיף/להסיר קומפוננטות בלי לשנות קוד קיים (OCP), ומה שהופך כל
-קומפוננטה לבדיקה (testable) בבידוד עם mock stores.
+The most important rule in this chapter: **communication between components
+always goes through shared state (stores) or events, never through direct
+calls**. If component A "needs component B to update" — the right solution
+is for both to subscribe to the same store, not for A to hold a reference to
+B and call `B.render()` directly. This is what allows adding/removing
+components without changing existing code (OCP), and what makes every
+component testable in isolation with mock stores.

@@ -1,43 +1,48 @@
-# סקירה כללית
+# Overview
 
-## מטרה
+## Purpose
 
-אפליקציית web (PWA) המציגה לוח שנה עברי/לועזי, זמני היום ההלכתיים, חגים
-ופרשת השבוע, ומסונכרנת עם Google Calendar של המשתמש (קריאה בלבד) — כדי
-שאירוע שנוסף ביומן גוגל יופיע גם בלוח האתר.
+A web app (PWA) that displays a Hebrew/Gregorian calendar, daily halachic
+times, holidays, and the weekly Torah portion, synced with the user's Google
+Calendar (read-only) — so an event added in Google Calendar also shows up in
+the site's calendar.
 
-מיועדת לשימוש אישי, לא להפצה המונית (אם כי אין מניעה טכנית לכך).
+Intended for personal use, not mass distribution (though there's no technical
+obstacle to that).
 
-## אילוצי יסוד (deliberate constraints)
+## Deliberate constraints
 
-| אילוץ | סיבה |
+| Constraint | Reason |
 |---|---|
-| **ללא שרת/backend** | פשטות, עלות אפס, אין נתונים רגישים לאבטח בצד שרת |
-| **קובץ HTML יחיד (בפועל היום)** | קל לארח בכל שירות סטטי, אין build step |
-| **קריאה בלבד מ-Google Calendar** (`calendar.readonly`) | scope מינימלי; אם ירצו כתיבה, יש להרחיב במודע (ראו [04](04-google-calendar-integration.md)) |
-| **חישובים אסטרונומיים/הלכתיים בצד לקוח** | עובד אופליין (מלבד אירועי גוגל), אין תלות ברשת לזמינות הבסיסית |
-| **חגים/פרשה לפי לוח ישראל בלבד** | `il:true` — יום טוב יחיד, לא שני ימים כמו בתפוצות |
+| **No server/backend** | Simplicity, zero cost, no sensitive data to secure server-side |
+| **Static files only, served as-is** | Easy to host on any static hosting service, no build step |
+| **Read-only from Google Calendar** (`calendar.readonly`) | Minimal scope; extending to write access is a conscious future decision (see [04](04-google-calendar-integration.md)) |
+| **Astronomical/halachic calculations run client-side** | Works offline (aside from Google events), no network dependency for basic availability |
+| **Holidays/parsha follow the Israel calendar only** | `il:true` — single-day Yom Tov, not two days like in the Diaspora |
 
-## סביבת ריצה
+## Runtime environment
 
-- דפדפן: Chrome (עיקרי), Safari/iOS נתמך גם כן.
-- מותקן כ-PWA ("הוסף למסך הבית") — מנג'סט + service worker.
-- RTL, עברית כשפת ממשק ראשית.
+- Browser: Chrome (primary), Safari/iOS also supported.
+- Installable as a PWA ("Add to Home Screen") — manifest + service worker.
+- RTL, Hebrew as the primary UI language.
 
-## פריסה (deployment)
+## Deployment
 
-- קוד מקור: ריפו GitHub פרטי (`shlomog12/calanderApp`).
-- אחסון: Netlify (`https://luach-il.netlify.app`), דיפלוי ידני/דרך MCP —
-  אין git-integration רציף מוגדר (כל שינוי דורש דיפלוי מפורש).
-- Google OAuth Client ID מוגדר עם ה-origin הנ"ל תחת Authorized JavaScript
-  origins; ה-consent screen במצב Testing עם בעל האפליקציה כ-test user.
+- Source code: private GitHub repo (`shlomog12/luach-il`).
+- Hosting: Netlify (`https://luach-il.netlify.app`), continuous deployment
+  connected to GitHub — every push to `master` deploys automatically (a
+  manual deploy via the Netlify API/CLI is also available as a fallback).
+- Google OAuth Client ID configured with that origin under Authorized
+  JavaScript origins; the consent screen starts in Testing mode with the app
+  owner as the test user (see [04](04-google-calendar-integration.md) for
+  what's needed to publish it more broadly).
 
-## רשימת יכולות (feature index)
+## Feature index
 
-1. תאריך עברי, חגים, פרשת שבוע — [01](01-hebrew-calendar.md)
-2. תצוגה עברית/לועזית + ניווט + דילוג לתאריך — [02](02-calendar-views-and-navigation.md)
-3. מיקום וזמני היום — [03](03-zmanim.md)
-4. סנכרון עם Google Calendar — [04](04-google-calendar-integration.md)
-5. עיצוב, RTL, disclosures, PWA — [05](05-ui-and-accessibility.md)
-6. שמירה מקומית (persistence) — [06](06-persistence-and-storage.md)
-7. שירותים/ספריות חיצוניים — [07](07-external-dependencies.md)
+1. Hebrew date, holidays, weekly parsha — [01](01-hebrew-calendar.md)
+2. Hebrew/Gregorian view + navigation + jump-to-date — [02](02-calendar-views-and-navigation.md)
+3. Location and daily zmanim — [03](03-zmanim.md)
+4. Google Calendar sync — [04](04-google-calendar-integration.md)
+5. Design, RTL, disclosures, PWA — [05](05-ui-and-accessibility.md)
+6. Local storage (persistence) — [06](06-persistence-and-storage.md)
+7. External services/libraries — [07](07-external-dependencies.md)

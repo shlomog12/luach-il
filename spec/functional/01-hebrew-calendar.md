@@ -1,52 +1,59 @@
-# לוח עברי: תאריכים, חגים, פרשת שבוע
+# Hebrew Calendar: Dates, Holidays, Weekly Parsha
 
-## מקור החישוב
+## Calculation source
 
-כל חישובי הלוח העברי (המרה עברי↔לועזי, חגים, פרשת שבוע, חשבון חודשים
-עבריים כולל שנים מעוברות) מתבצעים באמצעות ספריית **`@hebcal/core`**, לא
-בנוסחה עצמאית. אין הגבלת טווח תאריכים (בניגוד לגרסה קודמת של האפליקציה
-שהתבססה על טבלת "עוגנים" קשיחה שהייתה תקפה רק ל-2025–2027).
+All Hebrew-calendar calculations (Hebrew↔Gregorian conversion, holidays,
+weekly parsha, Hebrew month arithmetic including leap years) are done via the
+**`@hebcal/core`** library, not a hand-rolled formula. There's no date-range
+limit (unlike an earlier version of the app, which relied on a hardcoded
+"anchor" table valid only for 2025–2027).
 
-## המרת תאריכים
+## Date conversion
 
-- כל תאריך גרגוריאני ניתן להמרה לתאריך עברי (`HDate`) ולהפך, ללא הגבלת
-  טווח (בעבר/עתיד).
-- מספרי ימים/שנים עבריים מוצגים תמיד **בגימטריה** (אותיות עבריות עם
-  גרשיים תקניים, למשל `ט״ו`, `תשפ״ז`), לא כספרות.
-- שמות חודשים עבריים מוצגים ללא ניקוד (`תשרי`, לא `תִּשְׁרֵי`).
-- בשנה מעוברת מוצגים "אדר א׳" ו"אדר ב׳" כשני חודשים נפרדים; בשנה פשוטה —
-  "אדר" בודד.
+- Any Gregorian date can be converted to a Hebrew date (`HDate`) and back,
+  with no range limit (past or future).
+- Hebrew day/year numbers are always shown **in gematriya** (Hebrew letters
+  with standard gershayim, e.g. `ט״ו`, `תשפ״ז`), never as digits.
+- Hebrew month names are shown without niqqud (`תשרי`, not `תִּשְׁרֵי`).
+- In a leap year, "Adar I" and "Adar II" are shown as two separate months; in
+  a regular year, just "Adar".
 
-## חגים ומועדים
+## Holidays and observances
 
-מוצגים (כתגית טקסט + סימון ויזואלי על התא ביומן):
-- חגים דאורייתא/דרבנן (CHAG)
-- חגים קלים/מודרניים (MINOR_HOLIDAY, MODERN_HOLIDAY — למשל יום העצמאות,
-  יום ירושלים)
-- צומות קלים/גדולים (MINOR_FAST, MAJOR_FAST)
-- שבתות מיוחדות (SPECIAL_SHABBAT — למשל "שבת שובה", "שבת הגדול")
-- ראש חודש (ROSH_CHODESH) — כולל שני הימים כשראש חודש נופל על יומיים
-- חול המועד (CHOL_HAMOED)
+Shown (as a text tag + a visual marker on the calendar cell):
+- Biblical/rabbinic holidays (CHAG)
+- Minor/modern holidays (MINOR_HOLIDAY, MODERN_HOLIDAY — e.g. Yom
+  Ha'atzmaut, Yom Yerushalayim)
+- Minor/major fasts (MINOR_FAST, MAJOR_FAST)
+- Special Shabbatot (SPECIAL_SHABBAT — e.g. "Shabbat Shuva", "Shabbat
+  HaGadol")
+- Rosh Chodesh (ROSH_CHODESH) — including both days when Rosh Chodesh falls
+  on two days
+- Chol HaMoed (CHOL_HAMOED)
 
-**לא** מוצגים כתגית נפרדת (למניעת עומס מידע):
-- "ערב" חג (EREV) — למשל "ערב יום כיפור" לא מופיע כתגית נפרדת ביום שלפני
-- ספירת העומר, דף/משנה/ירושלמי/נ"ך יומי, מולד, שבת מברכים — לא רלוונטיים
-  לאפליקציית לוח כללית
+**Not** shown as a separate tag (to avoid information overload):
+- "Erev" a holiday (EREV) — e.g. "Erev Yom Kippur" doesn't appear as a
+  separate tag on the day before
+- Omer count, daily daf/mishna/yerushalmi/tanach, molad, Shabbat Mevarchim —
+  not relevant to a general calendar app
 
-שם החג מוצג ללא ניקוד, וללא הסיומת "5787"/שנה שחלק משמות האירועים כוללים
-(מוסרת אוטומטית).
+Holiday names are shown without niqqud, and without the "5787"/year suffix
+some event names include (stripped automatically).
 
-## פרשת שבוע
+## Weekly parsha
 
-- מוצגת רק בשבתות (PARSHA_HASHAVUA), לפי **לוח ישראל** (לא תפוצות — אין
-  כפילות פרשות).
-- בתא היומן (grid): מוצג שם הפרשה בלבד, בלי המילה "פרשת" (למשל
-  `נצבים־וילך`).
-- בכרטיס פירוט היום (detail): מוצג "פרשת [שם]" (למשל `פרשת נצבים־וילך`).
-- אם אותו שבת גם "שבת מיוחדת" (למשל "שבת שובה") — זה מופיע בנפרד כתגית
-  חג רגילה (לא משולב בטקסט הפרשה).
+- Shown only on Saturdays (PARSHA_HASHAVUA), per the **Israel** reading cycle
+  (not Diaspora — no doubled portions from that split).
+- On the calendar cell (grid): just the parsha name, without the word
+  "Parashat" (e.g. `Nitzavim-Vayeilech`).
+- On the day-detail card: shown as "Parashat [name]" (e.g. `Parashat
+  Nitzavim-Vayeilech`).
+- If that Saturday is also a "special Shabbat" (e.g. "Shabbat Shuva") — that
+  shows up separately as a regular holiday tag (not merged into the parsha
+  text).
 
-## מגבלות ידועות
+## Known limitations
 
-- אין תמיכה בלוח תפוצות (Diaspora) — מכוון בכוונה ל"לוח ישראל" בלבד.
-- אין הצגת זמן המולד, ספירת העומר, או לוח יומי (דף יומי וכו').
+- No Diaspora calendar support — deliberately targets the "Israel calendar"
+  only.
+- No molad time, Omer count, or daily-learning calendar (daf yomi, etc.) shown.

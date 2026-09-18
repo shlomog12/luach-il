@@ -1,177 +1,190 @@
-# אחריות כל מודול
+# Each Module's Responsibility
 
-לכל מודול: **מטרה** (מדוע קיים), **API ציבורי** (ברמת קונספט, לא חתימה
-מדויקת), **תלויות מותרות**, ו**מה אסור לו לעשות** (גבולות SRP).
+For every module: **purpose** (why it exists), **public API** (conceptual
+level, not an exact signature), **allowed dependencies**, and **what it must
+not do** (SRP boundaries).
 
 ---
 
 ## `config/constants.js`
 
-**מטרה**: קבועים גלובליים שאינם "נתונים" (locations) אלא הגדרות התנהגות.
+**Purpose**: global constants that aren't "data" (locations) but behavior
+settings.
 
-**מייצא**: מפתחות `localStorage`/`sessionStorage` (כמחרוזות קבועות
-יחידות — לא לשכפל string literal בכמה קבצים), `YEAR_SPAN_BACK/FWD`,
-גרסת ה-CDN המוצמדת של `@hebcal/core`, מספר הימים לשליפת אירועי גוגל (60).
+**Exports**: `localStorage`/`sessionStorage` keys (as single shared string
+constants — not duplicated as string literals across files),
+`YEAR_SPAN_BACK/FWD`, the pinned `@hebcal/core` CDN version, the number of
+days to fetch Google events for (60).
 
-**תלויות מותרות**: אין (קובץ ערכים טהור).
+**Allowed dependencies**: none (a pure values file).
 
-**אסור**: שום לוגיקה, שום import של DOM.
+**Must not**: contain any logic, any DOM import.
 
 ---
 
 ## `config/locations.js`
 
-**מטרה**: מקור האמת ל-20 המיקומים המוגדרים מראש.
+**Purpose**: the source of truth for the 20 preset locations.
 
-**מייצא**: מערך `PRESET_LOCATIONS` (קבוע, immutable).
+**Exports**: a `PRESET_LOCATIONS` array (constant, immutable).
 
-**תלויות מותרות**: אין.
+**Allowed dependencies**: none.
 
-**אסור**: לוגיקת חישוב, גישה ל-storage.
+**Must not**: contain calculation logic, storage access.
 
 ---
 
 ## `services/HebrewCalendarService.js`
 
-**מטרה**: היחיד שמכיר את `@hebcal/core` לצורך לוח עברי/חגים/פרשה. כל
-שאר הקוד "לא יודע" ש-`@hebcal/core` קיים — פונה רק ל-interface הזה.
+**Purpose**: the only module that knows about `@hebcal/core` for the Hebrew
+calendar/holidays/parsha. All other code "doesn't know" `@hebcal/core`
+exists — it only talks to this interface.
 
-**API ציבורי (רעיוני)**:
+**Public API (conceptual)**:
 - `toHebrewDate(gregorianDate) -> {day, monthName, year}`
 - `fromHebrewDate(day, month, year) -> gregorianDate`
 - `getMonthsInHebrewYear(year) -> number`
 - `getDaysInHebrewMonth(month, year) -> number`
 - `addHebrewMonths(month, year, delta) -> {month, year}`
 - `getDayInfoRange(startDate, endDate) -> Map<dateKey, {holidays: string[], parsha: string|null}>`
-- `formatHebrewNumber(n) -> string` (גימטריה)
+- `formatHebrewNumber(n) -> string` (gematriya)
 - `formatHebrewYear(year) -> string`
 
-**תלויות מותרות**: `hebcal` (global מה-CDN) בלבד.
+**Allowed dependencies**: `hebcal` (the CDN global) only.
 
-**אסור**: לגעת ב-DOM, לדעת על `localStorage`, לדעת על Google Calendar.
+**Must not**: touch the DOM, know about `localStorage`, know about Google
+Calendar.
 
 ---
 
 ## `services/ZmanimService.js`
 
-**מטרה**: חישוב זמני היום להלכה, כולל התאמת גובה ("שקיעה נראית").
+**Purpose**: halachic daily-times calculation, including elevation
+adjustment ("visible sunset").
 
-**API ציבורי**:
+**Public API**:
 - `getDailyZmanim(date, location) -> {alotHaShachar, sunrise, sofZmanShma, ..., tzeit, candleLighting}`
-  כאשר `location` הוא `{lat, lon, elevation}` (לא תלוי ב-`LocationStore` —
-  מקבל את הנתונים כפרמטר, לא שולף בעצמו).
+  where `location` is `{lat, lon, elevation}` (doesn't depend on
+  `LocationStore` — receives the data as a parameter, doesn't fetch it
+  itself).
 
-**תלויות מותרות**: `hebcal` (`Location`, `Zmanim`) בלבד.
+**Allowed dependencies**: `hebcal` (`Location`, `Zmanim`) only.
 
-**אסור**: לדעת מהו "המיקום הנבחר כרגע" (זו אחריות `LocationStore`) — כל
-קריאה מקבלת מיקום מפורש כפרמטר. זה מה שהופך את השירות לניתן-לבדיקה
-(testable) בבידוד.
+**Must not**: know what "the currently selected location" is (that's
+`LocationStore`'s responsibility) — every call receives an explicit location
+parameter. This is what makes the service testable in isolation.
 
 ---
 
 ## `services/ElevationService.js`
 
-**מטרה**: שליפת גובה מעל פני הים לקואורדינטות נתונות, דרך Open-Meteo.
+**Purpose**: look up elevation above sea level for given coordinates, via
+Open-Meteo.
 
-**API ציבורי**:
-- `async lookupElevation(lat, lon) -> number` (זורק/מחזיר `null` בכישלון
-  — ה-caller מחליט על ברירת מחדל, לא השירות עצמו)
+**Public API**:
+- `async lookupElevation(lat, lon) -> number` (returns `null` on failure —
+  the caller decides the fallback, not the service itself)
 
-**תלויות מותרות**: `fetch` גלובלי בלבד.
+**Allowed dependencies**: the global `fetch` only.
 
-**אסור**: לטפל בברירת מחדל (0 מ') — זו אחריות ה-caller
-(`LocationStore`/`LocationDialog`), לא של השירות.
+**Must not**: handle the fallback (0m) — that's the caller's responsibility
+(`LocationStore`/`LocationDialog`), not the service's.
 
 ---
 
 ## `services/GoogleAuthService.js`
 
-**מטרה**: כל מחזור החיים של האימות מול Google — יצירת token client,
-רענון שקט, גיבוי ידני, שמירת טוקן.
+**Purpose**: the entire Google auth lifecycle — creating the token client,
+silent refresh, manual fallback, token storage.
 
-**API ציבורי**:
+**Public API**:
 - `initialize(clientId, scope) -> void`
-- `getValidAccessToken() -> Promise<string | null>` (מנסה session-cache →
-  רענון שקט → מחזיר `null` אם צריך אישור ידני)
-- `requestConsent() -> void` (מפעיל פופאפ הסכמה)
-- `onAuthChange(callback)` — pub/sub להודעה על שינוי סטטוס חיבור (לצורך
-  `AuthStatusBar`, ראו [03](03-state-management-pattern.md))
+- `getValidAccessToken() -> Promise<string | null>` (tries a cached session
+  token → silent refresh → returns `null` if manual consent is needed)
+- `requestConsent() -> void` (triggers the consent popup)
+- `onAuthChange(callback)` — pub/sub to announce connection-status changes
+  (used by `AuthStatusBar`, see [03](03-state-management-pattern.md))
 
-**תלויות מותרות**: `google.accounts.oauth2` (global), `sessionStorage`
-דרך `utils/safeStorage.js` בלבד (לא ישירות).
+**Allowed dependencies**: `google.accounts.oauth2` (global), `sessionStorage`
+via `utils/safeStorage.js` only (not directly).
 
-**אסור**: לדעת מה עושים עם הטוקן אחרי שהוא מתקבל (שליפת אירועים היא
-אחריות `GoogleCalendarService`).
+**Must not**: know what happens with the token after it's obtained (fetching
+events is `GoogleCalendarService`'s responsibility).
 
 ---
 
 ## `services/GoogleCalendarService.js`
 
-**מטרה**: שליפת אירועים מ-Google Calendar API, נתון טוקן תקף.
+**Purpose**: fetch events from the Google Calendar API, given a valid token.
 
-**API ציבורי**:
+**Public API**:
 - `async fetchUpcomingEvents(accessToken, daysAhead) -> Event[]`
-  כאשר `Event = {date, title, allDay, calendarName}`
+  where `Event = {date, title, allDay, calendarName}`
 
-**תלויות מותרות**: `fetch` גלובלי, `config/constants.js` (למספר הימים).
+**Allowed dependencies**: the global `fetch`, `config/constants.js` (for the
+day count).
 
-**אסור**: לדעת איך משיגים טוקן (מקבל אותו כפרמטר) — decoupled מ-
-`GoogleAuthService` לגמרי. שני השירותים מחוברים רק דרך `main.js`.
+**Must not**: know how a token is obtained (receives it as a parameter) —
+fully decoupled from `GoogleAuthService`. The two services are only
+connected via `main.js`.
 
 ---
 
-## `state/*Store.js` (ארבעת ה-stores)
+## `state/*Store.js` (the four/five stores)
 
-ראו פירוט מלא של תבנית ה-Store ב-
-[03-state-management-pattern.md](03-state-management-pattern.md). בקצרה,
-לכל store: `get()`, `set(value)` (כולל כתיבה ל-storage אם רלוונטי),
-`subscribe(callback)`.
+See the full Store pattern writeup in
+[03-state-management-pattern.md](03-state-management-pattern.md). Briefly,
+every store has: `get()`, `set(value)` (including writing to storage if
+applicable), `subscribe(callback)`.
 
-| Store | מחזיק | persist? |
+| Store | Holds | Persisted? |
 |---|---|---|
-| `ViewModeStore` | `'heb' \| 'greg'` | כן (`localStorage`) |
-| `LocationStore` | `{name, lat, lon, elevation}` | כן (`localStorage`) |
-| `CalendarNavigationStore` | `current`, `hebCursor`, `selected` | לא |
-| `ZmanimDisclosureStore` | `boolean` (פתוח/סגור) | כן (`localStorage`) |
+| `ViewModeStore` | `'heb' \| 'greg'` | Yes (`localStorage`) |
+| `LocationStore` | `{name, lat, lon, elevation}` | Yes (`localStorage`) |
+| `CalendarNavigationStore` | `current`, `hebCursor`, `selected` | No |
+| `ZmanimDisclosureStore` | `boolean` (open/closed) | Yes (`localStorage`) |
+| `EventsStore` (added beyond the original 4 — see the update note at the top of [01](01-target-file-structure.md)) | Fetched Google Calendar events | No |
 
-**תלויות מותרות**: `utils/safeStorage.js` בלבד (לאלה שעושים persist).
+**Allowed dependencies**: `utils/safeStorage.js` only (for the ones that
+persist).
 
-**אסור**: שום store לא מכיר `services/*` או `components/*` — זרימת מידע
-היא **חד-כיוונית**: components → stores/services → components (דרך
-subscribe), לא stores שקוראים ל-components.
+**Must not**: no store knows about `services/*` or `components/*` — the data
+flow is **one-directional**: components → stores/services → components
+(via subscribe), never stores calling components.
 
 ---
 
 ## `components/*.js`
 
-ראו פירוט מלא ב-[04-component-design.md](04-component-design.md). כלל
-אצבע: קומפוננטה מקבלת container DOM + stores/services רלוונטיים
-(**מוזרקים דרך הבנאי/פונקציית היצירה**, לא global lookup), יודעת לרנדר
-את עצמה, ומפרסמת אירועים (callbacks) במקום לקרוא ישירות לקומפוננטות
-אחרות.
+See the full writeup in [04-component-design.md](04-component-design.md).
+Rule of thumb: a component receives a DOM container + the relevant
+stores/services (**injected via its constructor/factory function**, not a
+global lookup), knows how to render itself, and publishes events (callbacks)
+instead of calling other components directly.
 
 ---
 
 ## `utils/dateFormat.js`
 
-**מטרה**: פונקציות טהורות (pure functions) לפירמוט תאריכים/טווחים —
-`toKey`, `fmtTime`, `gregRangeLabel`, `hebRangeLabel`. ללא state, ללא
-side effects.
+**Purpose**: pure functions for formatting dates/ranges — `toKey`,
+`fmtTime`, `gregRangeLabel`, `hebRangeLabel`. No state, no side effects.
 
-**תלויות מותרות**: אין (או `services/HebrewCalendarService` בלבד עבור
-`hebRangeLabel`, שצריך `formatHebrewYear`/`heDayStr`).
+**Allowed dependencies**: none (or `services/HebrewCalendarService` only,
+for `hebRangeLabel`, which needs `formatHebrewYear`/`heDayStr`).
 
 ---
 
 ## `utils/safeStorage.js`
 
-**מטרה**: לרכז את כל דפוס ה-`try{...}catch(e){}` סביב
-`localStorage`/`sessionStorage` **במקום אחד**, במקום לשכפל אותו בכל store.
+**Purpose**: centralize the `try{...}catch(e){}` pattern around
+`localStorage`/`sessionStorage` **in one place**, instead of duplicating it
+in every store.
 
-**API ציבורי**:
+**Public API**:
 - `safeGet(storage, key) -> string | null`
-- `safeSet(storage, key, value) -> boolean` (מחזיר האם הצליח)
+- `safeSet(storage, key, value) -> boolean` (returns whether it succeeded)
 
-**תלויות מותרות**: אין.
+**Allowed dependencies**: none.
 
-**אסור**: לדעת *מה* המפתחות אומרים (זו אחריות ה-stores שמשתמשים בזה).
+**Must not**: know *what* the keys mean (that's the responsibility of the
+stores that use it).

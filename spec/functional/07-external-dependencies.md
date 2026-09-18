@@ -1,59 +1,68 @@
-# שירותים חיצוניים ותלויות
+# External Services and Dependencies
 
-כל תלות חיצונית נטענת ישירות בדפדפן (אין build step/bundler) — או דרך
-`<script src>` רגיל, או דרך `fetch` ל-API ציבורי.
+Every external dependency loads directly in the browser (no build
+step/bundler) — either via a plain `<script src>`, or via `fetch` to a public
+API.
 
 ## Google Identity Services
 
-- `https://accounts.google.com/gsi/client` (נטען `async defer`).
-- אחראי על זרימת ה-OAuth (token client). ראו
+- `https://accounts.google.com/gsi/client` (loaded `async defer`).
+- Handles the OAuth flow (token client). See
   [04-google-calendar-integration.md](04-google-calendar-integration.md).
 
 ## Google Calendar API v3
 
-- `https://www.googleapis.com/calendar/v3/...` — `calendarList` +
-  `events` per calendar. נקרא ישירות מהדפדפן עם ה-access token
-  (Authorization header), אין proxy.
+- `https://www.googleapis.com/calendar/v3/...` — `calendarList` + `events`
+  per calendar. Called directly from the browser with the access token
+  (Authorization header), no proxy.
 
 ## `@hebcal/core`
 
-- טעינה: `<script src="https://cdn.jsdelivr.net/npm/@hebcal/core@6.9.2/dist/bundle.min.js">`
-  — **גרסה מוצמדת (pinned)**, לא `latest`, כדי שעדכון בספרייה לא ישבור
-  את האתר בלי שינוי מכוון.
-- חושף global בשם `hebcal` (UMD bundle) — נצרך ישירות, אין `import`
-  מודולרי בקוד הנוכחי.
-- שימושים: `HDate` (המרת תאריכים), `HebrewCalendar.calendar()` (חגים +
-  פרשה), `Location`/`Zmanim` (זמני היום), `Locale`/`gematriya`
-  (תרגום/פירמוט עברי).
-- **למה ספרייה ולא נוסחה עצמאית**: חישוב לוח עברי מדויק (מולד, שנים
-  מעוברות, פרשות כפולות/יחידות תלוית שנה) הוא מורכב מספיק שכדאי להסתמך
-  על ספרייה בשימוש נרחב ומתוחזקת, במקום לממש/לתחזק לוגיקה כזו לבד.
+- Loaded via: `<script src="https://cdn.jsdelivr.net/npm/@hebcal/core@6.9.2/dist/bundle.min.js">`
+  — a **pinned version**, not `latest`, so a library update can't break the
+  site without a deliberate change.
+- Exposes a global named `hebcal` (UMD bundle) — consumed directly; the
+  source code doesn't use a modular `import` for it (it's the one library
+  loaded as a classic global rather than an ES module, since it ships as a
+  UMD bundle, not an ES module, on the CDN).
+- Usage: `HDate` (date conversion), `HebrewCalendar.calendar()` (holidays +
+  parsha), `Location`/`Zmanim` (daily times), `Locale`/`gematriya` (Hebrew
+  translation/formatting).
+- **Why a library and not a hand-rolled formula**: accurate Hebrew-calendar
+  calculation (molad, leap years, doubled/single parshiot depending on the
+  year) is complex enough that it's worth relying on a widely-used,
+  maintained library instead of implementing/maintaining that logic alone.
 
 ## Google Fonts
 
-- `Frank Ruhl Libre` + `Heebo` דרך `fonts.googleapis.com` /
+- `Frank Ruhl Libre` + `Heebo` via `fonts.googleapis.com` /
   `fonts.gstatic.com`.
 
 ## Open-Meteo Elevation API
 
 - `https://api.open-meteo.com/v1/elevation?latitude=...&longitude=...`
-- שירות ציבורי, ללא מפתח API, ללא הגבלת CORS. נקרא **רק** כשמשתמש שומר
-  מיקום מותאם-אישית (לא בכל טעינת עמוד), כדי לדעת את הגובה מעל פני הים
-  לחישוב זמנים ("שקיעה נראית" — ראו [03](03-zmanim.md)).
-- כישלון בקריאה (אופליין וכו') לא חוסם שמירת המיקום — נופל לגובה 0.
+- A public service, no API key, no CORS restriction. Called **only** when a
+  user saves a custom location (not on every page load), to know the
+  elevation above sea level for the zmanim calculation ("visible sunset" —
+  see [03](03-zmanim.md)).
+- A failed call (offline, etc.) doesn't block saving the location — it falls
+  back to elevation 0.
 
-## הערה בנוגע ל-yeshiva.org.il
+## Note on yeshiva.org.il
 
-**האתר לא ניגש בשום שלב לאתר yeshiva.org.il או ל-backend שלו.** נבדק
-במפורש (ראו החלטת עיצוב) והתברר ש:
+**The site never accesses yeshiva.org.il or its backend at any point.** This
+was explicitly checked (see design decision), and it turned out that:
 
-1. האתר מוגן ב-Cloudflare עם אתגר JS ("Just a moment...") שחוסם גישה
-   אוטומטית/תכנותית.
-2. גם אם היה ניתן לזהות את ה-API הפנימי שלהם, קריאה אליו מדומיין אחר
-   הייתה נחסמת ע"י CORS (לא מיועד לצריכה חיצונית).
-3. עקיפת הגנת בוט מכוונת כדי "לשאוב" נתונים משרת של אתר אחר אינה פרקטיקה
-   ראויה, גם אם הייתה טכנית אפשרית.
+1. The site is protected by Cloudflare with a JS challenge ("Just a
+   moment...") that blocks automated/programmatic access.
+2. Even if their internal API could be identified, calling it from a
+   different domain would be blocked by CORS (it's not meant for external
+   consumption).
+3. Deliberately bypassing bot protection to "scrape" data from another
+   site's server isn't a proper practice, even if it were technically
+   possible.
 
-**הפתרון שנבחר במקום זה**: שימוש בשיטת החישוב שלהם (זמנים לפי גובה,
-"שקיעה נראית") **דרך ספריית `@hebcal/core` המקומית**, שמחשבת תוצאות
-דומות ללא כל תלות ברשת/באתר השלישי — ראו [03-zmanim.md](03-zmanim.md).
+**The solution chosen instead**: use their calculation method (elevation-based
+times, "visible sunset") **via the local `@hebcal/core` library**, which
+computes similar results with zero dependency on the network/third-party
+site — see [03-zmanim.md](03-zmanim.md).

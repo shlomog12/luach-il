@@ -1,69 +1,78 @@
-# מיקום וזמני היום (זמנים הלכתיים)
+# Location and Daily Zmanim (Halachic Times)
 
-## מיקום
+## Location
 
-- רשימת **20 מיקומים בישראל** מוגדרת מראש (ערים/יישובים נפוצים + מעלה
-  לבונה), כל אחד עם `{name, lat, lon, elevation}` (הגובה במטרים מעל פני
-  הים).
-- ברירת המחדל: **ירושלים**.
-- אפשרות "מיקום מותאם אישית": הזנת שם + קו רוחב/אורך ידנית. בעת השמירה,
-  **הגובה נשלף אוטומטית** משירות ציבורי (Open-Meteo Elevation API) לפי
-  הקואורדינטות שהוזנו; אם השליפה נכשלת (למשל אופליין) — נופל חזרה לגובה 0
-  (פני הים) בלי לחסום את השמירה.
-- המיקום הנבחר **נשמר מקומית** ונטען אוטומטית בביקורים הבאים.
-- שינוי מיקום דרך דיאלוג (`<dialog>`) הנפתח מכפתור "שנה מיקום" — הכפתור
-  **וגם** השורה "זמני היום לפי [מיקום]" יושבים בתוך ה-`<details>` "זמני
-  היום" בכרטיס פירוט היום (**לא** בכותרת העמוד), ממש מעל רשימת הזמנים —
-  כי זה בדיוק המקום שהמיקום משפיע עליו. רשימת בחירה + שדה מותאם אישית
-  שמופיע רק כשבוחרים "מיקום אחר...".
-  - מאחר שכרטיס "זמני היום" נבנה מחדש (DOM חדש) בכל בחירת יום, כפתור
-    "שנה מיקום" מחובר מחדש ל-event listener שלו **בכל רינדור** — אין
-    חיווט חד-פעמי בעת האתחול.
+- A predefined list of **20 locations in Israel** (common cities/towns +
+  Maale Levona), each with `{name, lat, lon, elevation}` (elevation in
+  meters above sea level).
+- Default: **Jerusalem**.
+- A "custom location" option: enter a name + latitude/longitude manually. On
+  save, **elevation is fetched automatically** from a public service
+  (Open-Meteo Elevation API) for the entered coordinates; if the lookup fails
+  (e.g. offline), it falls back to elevation 0 (sea level) without blocking
+  the save.
+- The chosen location **persists locally** and loads automatically on future
+  visits.
+- Changing location happens via a dialog (`<dialog>`) opened from a "change
+  location" button — the button **and** the "זמני היום לפי [location]" line
+  both live inside the "זמני היום" `<details>` on the day-detail card (**not**
+  in the page header), right above the times list — because that's exactly
+  where the location matters. A select list + a custom-entry field that only
+  appears when "other location..." is chosen.
+  - Since the "זמני היום" card is rebuilt (fresh DOM) on every day selection,
+    the "change location" button's click listener is re-attached **on every
+    render** — there's no one-time wiring at startup.
 
-## שיטת חישוב זמני היום
+## Zmanim calculation method
 
-- **לא** מחושב לפי אופק שטוח/גובה פני הים ("שקיעה מישורית") — מחושב לפי
-  **הגובה בפועל של המיקום** ("שקיעה נראית"), התואם לשיטה שבה משתמש אתר
-  ישיבה (yeshiva.org.il) לזמנים שלהם. המשמעות בפועל: במיקום גבוה (למשל
-  מעלה לבונה, ~770 מ') הזריחה "נראית" מוקדם יותר והשקיעה מאוחרת יותר
-  (בסביבות 4 דקות בכל כיוון, תלוי עונה) לעומת חישוב שטוח.
-- החישוב עצמו מבוצע באמצעות מחלקות `Location`/`Zmanim` של ספריית
-  `@hebcal/core` (לא נוסחה אסטרונומית עצמאית) — ראו
+- **Not** calculated against a flat horizon/sea level ("שקיעה מישורית" —
+  flat sunset) — calculated using the **location's actual elevation**
+  ("שקיעה נראית" — visible sunset), matching the method yeshiva.org.il uses
+  for its times. Practical effect: at a high-elevation location (e.g. Maale
+  Levona, ~770m) sunrise "appears" earlier and sunset later (roughly 4
+  minutes each way, season-dependent) compared to a flat calculation.
+- The calculation itself is done via the `Location`/`Zmanim` classes of the
+  `@hebcal/core` library (not an independent astronomical formula) — see
   [07](07-external-dependencies.md).
-- **אין** גישה ל-backend של אתר ישיבה או כל אתר שלישי אחר לצורך זמנים —
-  ראו הערה בקובץ [07](07-external-dependencies.md#הערה-בנוגע-לyeshivaorgil)
-  לגבי הסיבה (חסימת Cloudflare + שיקולי הרשאה).
+- There's **no** access to yeshiva.org.il's backend or any other third-party
+  site for times — see the note in
+  [07](07-external-dependencies.md#note-on-yeshivaorgil) for why (Cloudflare
+  blocking + ethical considerations).
 
-## אילו זמנים מוצגים
+## Which times are shown
 
-מוצגים **בכל יום** (לא רק בשבת), בתוך `<details>` מכווץ בשם "זמני היום"
-בכרטיס פירוט היום (ראו [05](05-ui-and-accessibility.md)):
+Shown **every day** (not just Shabbat), inside a collapsed `<details>` named
+"זמני היום" on the day-detail card (see [05](05-ui-and-accessibility.md)):
 
-1. עלות השחר (16.1°)
-2. הנץ החמה
-3. סוף זמן קריאת שמע (גר"א)
-4. סוף זמן תפילה (גר"א)
-5. חצות היום
-6. מנחה גדולה
-7. מנחה קטנה
-8. פלג המנחה
-9. שקיעה
-10. **צאת הכוכבים** (8.5°) — בשבת בלבד מתויג "**צאת השבת (הבדלה)**" במקום
-    זאת (אותו זמן, תווית שונה)
+1. Alot HaShachar / dawn (16.1°)
+2. Sunrise (Netz)
+3. Sof Zman Kriat Shema (Gr"a)
+4. Sof Zman Tefilla (Gr"a)
+5. Chatzot (midday)
+6. Mincha Gedola
+7. Mincha Ketana
+8. Plag HaMincha
+9. Sunset (Shkiah)
+10. **Tzeit HaKochavim / nightfall** (8.5°) — on Shabbat only, labeled
+    "**Tzeit Shabbat (Havdalah)**" instead (same time, different label)
 
-בנוסף, **רק ביום שישי**: שורת "הדלקת נרות" (משוער — **שקיעה פחות 30
-דקות**, לא 20 — זו הדרישה המחייבת), מוצגת **מעל** רשימת הזמנים הכלליים
-(לא בתוכה).
+In addition, **only on Fridays**: a "candle lighting" row (estimated — **30
+minutes before sunset**, not 20 — this is the required value), shown **above**
+the general times list (not inside it).
 
-זמנים אינם מוצגים בתא היומן (grid) — רק בכרטיס פירוט יום ספציפי.
+Times aren't shown on the calendar cell (grid) — only on a specific day's
+detail card.
 
-מתחת לרשימת הזמנים (בתוך אותו `<details>` "זמני היום", **לא** בתחתית
-העמוד הכללית) מופיע גם משפט קרדיט קצר: "תאריכים עבריים, חגים ופרשת
-השבוע (לוח ישראל) מחושבים באמצעות ספריית Hebcal. זמני היום מחושבים
-אסטרונומית לקואורדינטות שבחרתם (שיטת הגר״א)." — ממוקם שם ולא בכותרת/
-footer הכלליים, כי הוא רלוונטי ספציפית לתוכן של הכרטיס הזה.
+Below the times list (inside that same "זמני היום" `<details>`, **not** in
+the page-wide footer) there's also a short credit line: "Hebrew dates,
+holidays, and the weekly parsha (Israel calendar) are calculated using the
+Hebcal library. Daily times are calculated astronomically for the
+coordinates you chose (Gr"a method)." — placed there rather than in the
+general header/footer, because it's specifically relevant to that card's
+content.
 
-## הרחבות עתידיות אפשריות (לא ממומש)
+## Possible future extensions (not implemented)
 
-- שיטות זמנים חלופיות (מג"א וכו') — הספרייה תומכת בכך, לא נחשף בממשק.
-- זמני קידוש לבנה, תענית אסתר וכו'.
+- Alternative zmanim opinions (Magen Avraham, etc.) — the library supports
+  this, not exposed in the UI.
+- Kiddush levana times, Taanit Esther, etc.

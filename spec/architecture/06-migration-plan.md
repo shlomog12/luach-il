@@ -1,88 +1,95 @@
-# תוכנית מעבר הדרגתית
+# Gradual Migration Plan
 
-> **עדכון: המעבר בוצע בפועל, לא בהדרגה כפי שתוכנן כאן.** כשנתבקש "תממש
-> הכל" בפועל, המעבר בוצע **במכה אחת** (כל הקבצים נכתבו יחד) במקום בשלבים
-> המדורגים שמתוארים למטה — עם בדיקות אוטומטיות מקיפות (Puppeteer, דפדפן
-> אמיתי דרך שרת HTTP מקומי, לא jsdom — כי ES modules לא נטענים תחת
-> `file://`) ו-screenshots ויזואליים **לפני** ה-push, כדי לפצות על אי-ביצוע
-> בשלבים קטנים. זה עבד, אבל זה סיכון גבוה יותר מהגישה המדורגת שתוארה כאן —
-> המסמך הזה נשאר כתיעוד של איך זה *היה יכול* להתבצע בבטחה יותר, ורלוונטי
-> לכל שינוי ארכיטקטורה גדול עתידי נוסף.
+> **Update: the migration actually happened all at once, not gradually as
+> planned here.** When asked to "implement it all" for real, the migration
+> was done **in one shot** (every file written together) instead of the
+> staged approach described below — with a comprehensive automated test
+> suite (Puppeteer, a real browser via a local HTTP server, not jsdom —
+> since ES modules don't load under `file://`) and visual screenshots
+> **before** pushing, to compensate for not doing it in small steps. That
+> worked, but it's a higher-risk approach than the gradual one described
+> here — this document remains as a record of how it *could have* been done
+> more safely, and is relevant to any future large architecture change.
 
-**המטרה**: לעבור מ-`index.html` המונוליטי למבנה המתואר ב-
-[01-target-file-structure.md](01-target-file-structure.md) **בלי** שהאתר
-החי (`luach-il.netlify.app`) יישבר באף שלב ביניים. כל שלב מסתיים במצב
-שאפשר לדחוף ולפרוס (deployable), גם אם המעבר לא הושלם.
+**Goal**: migrate from the monolithic `index.html` to the structure
+described in [01-target-file-structure.md](01-target-file-structure.md)
+**without** the live site (`luach-il.netlify.app`) breaking at any
+intermediate step. Every step ends in a deployable state, even if the
+migration isn't finished.
 
-## שלב 0: הכנה (לפני כל שינוי מבנה)
+## Step 0: preparation (before any structural change)
 
-- להוסיף את קבצי ה-spec (המסמך הזה ואחיו) לריפו — **בוצע**.
-- לוודא שיש דרך לבדוק את האתר ידנית אחרי כל שלב (checklist ידני קצר לפי
-  ה-functional spec: כל פיצ'ר עובד? — במיוחד OAuth, שזה הכי רגיש ל-
-  regressions שקטים).
+- Add the spec files (this document and its siblings) to the repo — **done**.
+- Make sure there's a way to manually check the site after each step (a
+  short manual checklist per the functional spec: does every feature work? —
+  especially OAuth, which is the most sensitive to silent regressions).
 
-## שלב 1: לחלץ utils טהורים, בלי לגעת ב-`index.html`
+## Step 1: extract pure utils, without touching `index.html`
 
-- ליצור `src/utils/dateFormat.js` עם `toKey`, `fmtTime`,
-  `gregRangeLabel`, `hebRangeLabel` — **מועתקים** (לא מוזזים) מהקוד
-  הקיים, עם unit tests.
-- `index.html` **עדיין לא** משתמש בקובץ הזה — הוא רק קיים ועובר בדיקות,
-  כהוכחת-היתכנות ל-ES modules בפרויקט.
-- שום שינוי בהתנהגות האתר החי.
+- Create `src/utils/dateFormat.js` with `toKey`, `fmtTime`,
+  `gregRangeLabel`, `hebRangeLabel` — **copied** (not moved) from the
+  existing code, with unit tests.
+- `index.html` **still doesn't** use this file — it just exists and passes
+  tests, as a proof-of-concept for ES modules in the project.
+- No change to the live site's behavior.
 
-## שלב 2: לחלץ services טהורים (לא-DOM), עדיין בלי לחבר
+## Step 2: extract pure (non-DOM) services, still without wiring them in
 
 - `HebrewCalendarService.js`, `ZmanimService.js`, `ElevationService.js` —
-  כל אחד עם unit tests שמוודאים שהוא מפיק **בדיוק** אותן תוצאות כמו
-  הקוד המקביל ב-`index.html` הנוכחי (בדיקת regression, לא רק "עובד").
-- עדיין אין חיבור בפועל ל-`index.html`.
+  each with unit tests confirming it produces **exactly** the same results
+  as the equivalent code in the current `index.html` (a regression test, not
+  just "it works").
+- Still no actual connection to `index.html`.
 
-## שלב 3: להחליף חלק אחד ב-`index.html` בכל פעם (strangler fig)
+## Step 3: replace one piece of `index.html` at a time (strangler fig)
 
-כאן `index.html` **כן** משתנה, אבל **חלק אחד בכל קומיט**:
+Here `index.html` **does** change, but **one piece per commit**:
 
-1. להוסיף `<script type="module" src="src/main.js">` **לצד** ה-
-   `<script>` הישן (לא במקומו עדיין).
-2. `main.js` בשלב הזה עושה דבר אחד בלבד: מייבא את `HebrewCalendarService`
-   וקורא לו **במקום** לקוד המקביל בקוד הישן — למשל להחליף רק את
-   `heDayStr`/`hebMonthName` להשתמש בשירות החדש, ולוודא שהאתר עדיין נראה
-   זהה.
-3. חוזרים על זה שירות-אחר-שירות: `ZmanimService`, אז `GoogleAuthService`
-   + `GoogleCalendarService`.
-4. בכל קומיט כזה — לפרוס ל-Netlify ולבדוק ידנית לפי ה-checklist משלב 0
-   לפני שממשיכים לשלב הבא.
+1. Add `<script type="module" src="src/main.js">` **alongside** the old
+   `<script>` (not replacing it yet).
+2. At this stage, `main.js` does exactly one thing: import
+   `HebrewCalendarService` and use it **instead of** the equivalent code in
+   the old script — e.g. replace only `heDayStr`/`hebMonthName` to use the
+   new service, and confirm the site still looks identical.
+3. Repeat this service by service: `ZmanimService`, then
+   `GoogleAuthService` + `GoogleCalendarService`.
+4. After each such commit — deploy to Netlify and manually check against
+   the step-0 checklist before moving to the next step.
 
-## שלב 4: להחליף state גלובלי ב-stores
+## Step 4: replace global state with stores
 
-- ליצור את ארבעת ה-stores ([03](03-state-management-pattern.md)).
-- להחליף כל שימוש ב-`VIEW_MODE`/`LOCATION`/`current`/`hebCursor`/
-  `selected` הגלובליים בקריאות ל-store המתאים — **בקוד הישן שנשאר
-  ב-`index.html`**, לא רק בקוד החדש. זה השלב שדורש הכי הרבה זהירות כי
-  נוגע בהרבה מקומות בקוד הקיים בבת אחת.
-- לבדוק שוב את כל ה-flow הידני (במיוחד: מעבר בין מצבי תצוגה, דילוג
-  לתאריך, שמירת מיקום מותאם-אישית).
+- Create the four stores ([03](03-state-management-pattern.md)).
+- Replace every use of the global `VIEW_MODE`/`LOCATION`/`current`/
+  `hebCursor`/`selected` with calls to the matching store — **in the old
+  code still living in `index.html`**, not just in the new code. This is
+  the step that needs the most care, since it touches many places in the
+  existing code at once.
+- Re-test the whole manual flow again (especially: switching view modes,
+  jumping to a date, saving a custom location).
 
-## שלב 5: לפרק את הרינדור לקומפוננטות
+## Step 5: break rendering into components
 
-- להוציא כל פונקציית רינדור (`renderCalendarGrid`, `showDetail`,
-  `renderEvents`, קוד הדיאלוג, קוד בקרי הדילוג) לקומפוננטה משלה
-  ([04](04-component-design.md)), אחת בכל פעם, כשכל קומפוננטה נרשמת
-  ל-stores הרלוונטיים לה ב-`main.js`.
-- ברגע שקומפוננטה מסוימת "חיה" ב-module חדש — למחוק את הפונקציה המקבילה
-  מהקוד הישן שב-`index.html`.
+- Extract every render function (`renderCalendarGrid`, `showDetail`,
+  `renderEvents`, the dialog code, the jump-controls code) into its own
+  component ([04](04-component-design.md)), one at a time, with each
+  component registering itself with the relevant stores in `main.js`.
+- Once a given component is "living" in a new module — delete the
+  equivalent function from the old code still in `index.html`.
 
-## שלב 6: ניקיון סופי
+## Step 6: final cleanup
 
-- כש-`index.html` כבר לא מכיל שום לוגיקה (רק markup + `<script
-  type="module" src="src/main.js">` יחיד) — למחוק את ה-`<script>` הישן
-  לגמרי.
-- לחלץ את ה-`<style>` הפנימי ל-`styles/main.css`.
-- לעדכן את [functional spec](../functional/) אם התגלו אי-דיוקים בדרך
-  (המסמכים האלה צריכים להישאר מקור אמת מדויק).
+- Once `index.html` no longer contains any logic (just markup + a single
+  `<script type="module" src="src/main.js">`) — delete the old `<script>`
+  entirely.
+- Extract the inline `<style>` block to `styles/main.css`.
+- Update the [functional spec](../functional/) if any inaccuracies were
+  discovered along the way (these documents need to stay an accurate source
+  of truth).
 
-## עקרון-על לכל אורך התהליך
+## Overarching principle throughout
 
-**כל קומיט משאיר את האתר במצב עובד ופרוס**. אין "שלב ביניים שבור" — אם
-שלב מסוים דורש יותר מקומיט אחד כדי לא לשבור כלום, מפרקים אותו לעוד
-תת-שלבים. זה בדיוק העיקרון של strangler-fig migration: מחליפים חתיכה
-מהקוד הישן בחדש, בהדרגה, כשהמערכת כולה תמיד "חיה".
+**Every commit leaves the site in a working, deployed state**. There's no
+"broken intermediate stage" — if a given step needs more than one commit to
+avoid breaking anything, split it into further sub-steps. This is exactly
+the strangler-fig migration principle: replace a piece of the old code with
+new code, gradually, while the whole system stays "alive" the entire time.
