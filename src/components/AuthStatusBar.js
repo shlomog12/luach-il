@@ -10,7 +10,7 @@ export class AuthStatusBar {
   /** @param {'unconfigured'|boolean} status */
   render(status) {
     if (status === 'unconfigured') {
-      this.textEl.textContent = "יש להגדיר CLIENT_ID בקובץ index.html (ראו README)";
+      this.textEl.textContent = "יש להגדיר CLIENT_ID בקובץ src/config/constants.js (ראו README)";
       this.btnEl.disabled = true;
       return;
     }

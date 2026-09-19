@@ -49,7 +49,7 @@ deployment מחובר ישירות ל-GitHub). אין צורך בפקודת די
 
 ## Google OAuth Client ID
 
-האתר כבר מוגדר עם Client ID פעיל (ב-`index.html`, קבוע `CLIENT_ID`),
+האתר כבר מוגדר עם Client ID פעיל (ב-`src/config/constants.js`, קבוע `CLIENT_ID`),
 עם `https://luach-il.netlify.app` כ-Authorized JavaScript origin
 ב-Google Cloud Console. אם מעתיקים את הפרויקט לדומיין אחר, יש להוסיף את
 הדומיין החדש שם וליצור/לעדכן Client ID בהתאם.
