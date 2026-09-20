@@ -5,7 +5,8 @@
 עם Google Calendar שלכם (קריאה בלבד): אירוע שמוסיפים ביומן גוגל מופיע גם
 בלוח כאן.
 
-🔗 **אתר חי**: https://luach-il.netlify.app
+🔗 **אתר חי**: https://luach-il.netlify.app · https://shlomog12.github.io/luach-il/
+(סנכרון Google Calendar עובד כרגע רק בכתובת ה-Netlify — ראו "Google OAuth Client ID" למטה)
 
 ## מה יש כאן
 
@@ -44,15 +45,27 @@
 
 ## פריסה
 
-**כל `git push` ל-`master` פורס אוטומטית** ל-Netlify (continuous
-deployment מחובר ישירות ל-GitHub). אין צורך בפקודת דיפלוי ידנית.
+**כל `git push` ל-`master` פורס אוטומטית** לשני יעדים במקביל:
+- **Netlify** (continuous deployment מחובר ישירות ל-GitHub) — אין צורך
+  בפקודת דיפלוי ידנית.
+- **GitHub Pages**, דרך workflow ב-
+  [`.github/workflows/pages.yml`](.github/workflows/pages.yml) — מופעל
+  **רק** כששינוי נוגע בפועל בקבצים שנפרסים (`index.html`, `manifest.json`,
+  `sw.js`, `styles/`, `src/` וכו'), לא בשינויי תיעוד (`spec/`, `README.md`).
+  אפשר גם להפעיל ידנית מטאב Actions (`workflow_dispatch`).
 
 ## Google OAuth Client ID
 
 האתר כבר מוגדר עם Client ID פעיל (ב-`src/config/constants.js`, קבוע `CLIENT_ID`),
 עם `https://luach-il.netlify.app` כ-Authorized JavaScript origin
-ב-Google Cloud Console. אם מעתיקים את הפרויקט לדומיין אחר, יש להוסיף את
-הדומיין החדש שם וליצור/לעדכן Client ID בהתאם.
+ב-Google Cloud Console. אם מעתיקים את הפרויקט לדומיין אחר (או מוסיפים
+יעד פריסה נוסף, כמו GitHub Pages), יש להוסיף את הדומיין החדש שם
+וליצור/לעדכן Client ID בהתאם.
+
+**⚠️ כרגע `https://shlomog12.github.io` עדיין לא מוגדר כ-Authorized
+JavaScript origin** — כניסה עם Google לא תעבוד בכתובת ה-GitHub Pages
+עד שיתווסף שם ב-Google Cloud Console (Credentials → OAuth 2.0 Client
+IDs → העריכה של ה-Client ID → Authorized JavaScript origins).
 
 ## שאלות נפוצות
 
