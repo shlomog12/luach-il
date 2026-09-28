@@ -5,22 +5,38 @@
 import { toKey } from '../utils/dateFormat.js';
 
 /**
+ * All of the user's calendars. `writable` is true where the user may add events
+ * (accessRole owner/writer — not read-only or free/busy-only shared calendars).
  * @param {string} accessToken
- * @param {number} daysAhead
- * @returns {Promise<{date: Date, title: string, allDay: boolean, calName: string}[]>}
+ * @returns {Promise<{id: string, summary: string, primary: boolean, writable: boolean}[]>}
  */
-export async function fetchUpcomingEvents(accessToken, daysAhead) {
-  const calListRes = await fetch('https://www.googleapis.com/calendar/v3/users/me/calendarList', {
+export async function fetchCalendarList(accessToken) {
+  const res = await fetch('https://www.googleapis.com/calendar/v3/users/me/calendarList', {
     headers: { Authorization: 'Bearer ' + accessToken },
   });
-  if (!calListRes.ok) throw new Error('calendarList ' + calListRes.status);
-  const calList = await calListRes.json();
+  if (!res.ok) throw new Error('calendarList ' + res.status);
+  const data = await res.json();
+  return (data.items || []).map(cal => ({
+    id: cal.id,
+    summary: cal.summaryOverride || cal.summary,
+    primary: !!cal.primary,
+    writable: cal.accessRole === 'owner' || cal.accessRole === 'writer',
+  }));
+}
+
+/**
+ * @param {string} accessToken
+ * @param {number} daysAhead
+ * @param {{id: string, summary: string}[]} calendars from fetchCalendarList
+ * @returns {Promise<{date: Date, title: string, allDay: boolean, calName: string}[]>}
+ */
+export async function fetchUpcomingEvents(accessToken, daysAhead, calendars) {
   const now = new Date();
   const timeMin = now.toISOString();
   const timeMax = new Date(now.getTime() + daysAhead * 86400000).toISOString();
 
   const all = [];
-  await Promise.all((calList.items || []).map(async cal => {
+  await Promise.all(calendars.map(async cal => {
     const url = `https://www.googleapis.com/calendar/v3/calendars/${encodeURIComponent(cal.id)}/events`
       + `?timeMin=${encodeURIComponent(timeMin)}&timeMax=${encodeURIComponent(timeMax)}`
       + `&singleEvents=true&orderBy=startTime&maxResults=50`;
@@ -43,14 +59,14 @@ export async function fetchUpcomingEvents(accessToken, daysAhead) {
 }
 
 /**
- * Creates an event on the user's primary calendar. Dates/times are the
+ * Creates an event on the given calendar (default: primary). Dates/times are the
  * wall-clock values the user typed, interpreted in the browser's time zone.
  * @param {string} accessToken
- * @param {{title: string, date: string, allDay: boolean, startTime?: string, endTime?: string, description?: string}} input
+ * @param {{calendarId?: string, title: string, date: string, allDay: boolean, startTime?: string, endTime?: string, description?: string}} input
  *   date: 'YYYY-MM-DD'; startTime/endTime: 'HH:MM' (required unless allDay)
  * @returns {Promise<object>} the created Google Calendar event resource
  */
-export async function createEvent(accessToken, { title, date, allDay, startTime, endTime, description }) {
+export async function createEvent(accessToken, { calendarId = 'primary', title, date, allDay, startTime, endTime, description }) {
   const body = { summary: title };
   if (description) body.description = description;
   if (allDay) {
@@ -66,7 +82,7 @@ export async function createEvent(accessToken, { title, date, allDay, startTime,
     body.end = { dateTime: `${date}T${endTime}:00`, timeZone };
   }
 
-  const res = await fetch('https://www.googleapis.com/calendar/v3/calendars/primary/events', {
+  const res = await fetch(`https://www.googleapis.com/calendar/v3/calendars/${encodeURIComponent(calendarId)}/events`, {
     method: 'POST',
     headers: { Authorization: 'Bearer ' + accessToken, 'Content-Type': 'application/json' },
     body: JSON.stringify(body),

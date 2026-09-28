@@ -62,14 +62,20 @@ created directly in their Google Calendar.
 - When connected, the day-detail card shows a "+ הוספת אירוע" button, which
   opens a dialog pre-filled with that day's date (the Hebrew date is shown
   next to the date field).
-- Fields: title (required), date, "all day" checkbox, start/end time
+- Fields: title (required), target calendar, date, "all day" checkbox, start/end time
   (default 09:00–10:00; changing the start keeps a one-hour length), and an
   optional description. End time must be after start time.
 - On save: if the current token lacks `calendar.events`, the permission
   popup opens (from the save click itself, so it isn't popup-blocked). If the
   user declines, an error is shown in the dialog and nothing is created —
   read access is unaffected.
-- The event is created with `events.insert` on the **primary** calendar.
+- The calendar picker lists only calendars the user can write to
+  (`accessRole` `owner`/`writer` from the same `calendarList` call used for
+  fetching events) — primary first, marked "(ראשי)", then alphabetically.
+  It defaults to primary, and after a save it preselects the last calendar
+  used, for the rest of the visit. If the list failed to load, only the
+  primary calendar is offered.
+- The event is created with `events.insert` on the chosen calendar.
   Timed events send the wall-clock `dateTime` (no offset) plus the browser's
   IANA `timeZone`, so DST is resolved for the event's own date. All-day
   events use `date`, with the exclusive end date set to the next day.
