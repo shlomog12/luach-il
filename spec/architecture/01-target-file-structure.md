@@ -66,7 +66,7 @@ right now.
 │   │   ├── DayDetailPanel.js
 │   │   ├── EventsListPanel.js
 │   │   ├── LocationDialog.js
-│   │   ├── AddEventDialog.js
+│   │   ├── EventDialog.js
 │   │   ├── JumpToDatePanel.js
 │   │   ├── ModeToggle.js
 │   │   ├── NavControls.js

@@ -99,8 +99,12 @@
 
 <dialog id="eventDialog">
   <div class="dlg-inner">
-    <div class="section-title">הוספת אירוע ליומן Google</div>
+    <div class="section-title" id="evHeading">הוספת אירוע ליומן Google</div>
     <div class="form-rows">
+      <select id="evScope" aria-label="על אילו מופעים להחיל" hidden>
+        <option value="one">רק המופע הזה</option>
+        <option value="all">כל המופעים בסדרה</option>
+      </select>
       <input type="text" id="evTitle" placeholder="כותרת האירוע" maxlength="200">
       <select id="evCalendar" aria-label="יומן"><option value="primary">היומן הראשי</option></select>
       <div class="form-row">
@@ -123,10 +127,12 @@
         <input type="date" id="evRepeatUntil" aria-label="עד תאריך">
       </div>
       <div class="repeat-hint" id="evRepeatHint" hidden></div>
+      <div class="repeat-hint" id="evNote" hidden></div>
       <textarea id="evDesc" rows="2" placeholder="תיאור (לא חובה)"></textarea>
       <div class="err" id="evErr" hidden></div>
     </div>
     <div class="dlg-actions">
+      <button class="btn btn-danger" id="evDeleteBtn" type="button" hidden>מחיקה</button>
       <button class="btn" id="evCancelBtn" type="button">ביטול</button>
       <button class="btn" id="evSaveBtn" type="button">שמירה</button>
     </div>

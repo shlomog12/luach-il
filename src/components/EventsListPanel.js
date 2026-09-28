@@ -5,11 +5,19 @@
 import * as EventsStore from '../state/EventsStore.js';
 import { GREG_MONTHS_SHORT } from '../config/constants.js';
 import { fmtTime } from '../utils/dateFormat.js';
+import { escapeHtml } from '../utils/html.js';
 
 export class EventsListPanel {
-  constructor({ boxEl }) {
+  /** @param {{onEventSelected: (ev: object) => void}} deps */
+  constructor({ boxEl }, { onEventSelected }) {
     this.boxEl = boxEl;
+    this.onEventSelected = onEventSelected;
     EventsStore.onEventsChange(() => this.render());
+    // Rows are re-rendered wholesale, so one delegated listener on the box.
+    this.boxEl.addEventListener('click', (e) => {
+      const row = e.target.closest('[data-ev]');
+      if (row) this.onEventSelected(EventsStore.getEvents()[Number(row.dataset.ev)]);
+    });
   }
 
   showLoading() {
@@ -26,11 +34,14 @@ export class EventsListPanel {
       this.boxEl.innerHTML = `<div class="events-empty">אין אירועים ב-60 הימים הקרובים.</div>`;
       return;
     }
-    this.boxEl.innerHTML = events.map(ev => {
+    this.boxEl.innerHTML = events.map((ev, i) => {
       const d = ev.date;
       const dateStr = `${d.getDate()} ${GREG_MONTHS_SHORT[d.getMonth()]}`;
       const timeStr = ev.allDay ? '' : `, ${fmtTime(d)}`;
-      return `<div class="event-item"><span class="edate">${dateStr}${timeStr}</span><span class="etitle">${ev.title}</span></div>`;
+      const inner = `<span class="edate">${dateStr}${timeStr}</span><span class="etitle">${escapeHtml(ev.title)}</span>`;
+      return ev.editable
+        ? `<button class="event-item" type="button" data-ev="${i}" title="עריכה או מחיקה">${inner}</button>`
+        : `<div class="event-item">${inner}</div>`;
     }).join('');
   }
 }

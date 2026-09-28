@@ -5,7 +5,7 @@
 
 import { CLIENT_ID, CAL_SCOPE, CAL_WRITE_SCOPE, GCAL_DAYS_AHEAD } from './config/constants.js';
 import * as AuthService from './services/GoogleAuthService.js';
-import { fetchCalendarList, fetchUpcomingEvents, createEvent, createEventSeries } from './services/GoogleCalendarService.js';
+import { fetchCalendarList, fetchUpcomingEvents, createEvent, createEventSeries, updateEvent, deleteEvent } from './services/GoogleCalendarService.js';
 import { hebrewRecurrenceDates } from './services/HebrewCalendarService.js';
 import { toKey, fromKey } from './utils/dateFormat.js';
 import * as EventsStore from './state/EventsStore.js';
@@ -18,7 +18,7 @@ import { EventsListPanel } from './components/EventsListPanel.js';
 import { LocationDialog } from './components/LocationDialog.js';
 import { JumpToDatePanel } from './components/JumpToDatePanel.js';
 import { AuthStatusBar } from './components/AuthStatusBar.js';
-import { AddEventDialog } from './components/AddEventDialog.js';
+import { EventDialog } from './components/EventDialog.js';
 
 function byId(id) { return document.getElementById(id); }
 
@@ -54,14 +54,17 @@ function boot() {
 
   new CalendarGrid({ gridEl: byId('grid') });
 
-  const eventsListPanel = new EventsListPanel({ boxEl: byId('eventsBox') });
+  const eventsListPanel = new EventsListPanel(
+    { boxEl: byId('eventsBox') },
+    { onEventSelected: (ev) => eventDialog.openEdit(ev) }
+  );
 
   async function refreshEvents() {
     eventsListPanel.showLoading();
     try {
       const token = AuthService.getAccessToken();
       const calendars = await fetchCalendarList(token);
-      addEventDialog.setCalendars(calendars.filter(cal => cal.writable));
+      eventDialog.setCalendars(calendars.filter(cal => cal.writable));
       const events = await fetchUpcomingEvents(token, GCAL_DAYS_AHEAD, calendars);
       EventsStore.setEvents(events);
     } catch (err) {
@@ -69,11 +72,35 @@ function boot() {
     }
   }
 
-  // Add event -> (first time only) ask Google for write access -> create in the
-  // chosen calendar -> refetch, so the new event shows up everywhere exactly as
-  // Google stored it.
-  const addEventDialog = new AddEventDialog({
+  /**
+   * First time only: ask Google for write access. Must run synchronously from
+   * the dialog's click (before any await), so the permission popup isn't blocked.
+   * @returns {Promise<string>} a token with write access
+   */
+  async function getWriteToken() {
+    const granted = await AuthService.requestScope(CAL_WRITE_SCOPE);
+    if (!granted) throw new Error('לא ניתנה הרשאה לשינוי אירועים ביומן Google');
+    const token = AuthService.getAccessToken();
+    if (!token) throw new Error('החיבור ל-Google פג — התחברו מחדש ונסו שוב');
+    return token;
+  }
+
+  /** After a series-wide update/delete: refetch, and report a partial failure. */
+  async function finishSeriesOp({ done, failed }, verb) {
+    if (!done) throw new Error(`שגיאה ב${verb}`);
+    await refreshEvents();
+    // Some went through, so the dialog closes (retrying would repeat those).
+    if (failed) alert(`${verb}: ${done} הצליחו, ${failed} נכשלו.`);
+  }
+
+  // Add/edit/delete -> write access -> Google -> refetch, so changes show up
+  // everywhere exactly as Google stored them.
+  const eventDialog = new EventDialog({
     dialogEl: byId('eventDialog'),
+    headingEl: byId('evHeading'),
+    scopeEl: byId('evScope'),
+    noteEl: byId('evNote'),
+    deleteBtn: byId('evDeleteBtn'),
     titleEl: byId('evTitle'),
     calendarEl: byId('evCalendar'),
     dateEl: byId('evDate'),
@@ -94,11 +121,7 @@ function boot() {
     saveBtn: byId('evSaveBtn'),
   }, {
     onSave: async (input) => {
-      // Called synchronously from the save click, so the permission popup isn't blocked.
-      const granted = await AuthService.requestScope(CAL_WRITE_SCOPE);
-      if (!granted) throw new Error('לא ניתנה הרשאה להוספת אירועים ליומן Google');
-      const token = AuthService.getAccessToken();
-      if (!token) throw new Error('החיבור ל-Google פג — התחברו מחדש ונסו שוב');
+      const token = await getWriteToken();
       const { recurrence, ...event } = input;
       if (recurrence && (recurrence.freq === 'hyearly' || recurrence.freq === 'hmonthly')) {
         // Google has no Hebrew-date RRULE, so each occurrence becomes its own event.
@@ -119,13 +142,34 @@ function boot() {
       }
       await refreshEvents();
     },
+    onUpdate: async (ev, scope, changes) => {
+      const token = await getWriteToken();
+      let result;
+      try {
+        result = await updateEvent(token, ev, scope, changes);
+      } catch (err) {
+        throw new Error(`שגיאה בעדכון האירוע (${err.message})`);
+      }
+      await finishSeriesOp(result, 'עדכון האירועים');
+    },
+    onDelete: async (ev, scope) => {
+      const token = await getWriteToken();
+      let result;
+      try {
+        result = await deleteEvent(token, ev, scope);
+      } catch (err) {
+        throw new Error(`שגיאה במחיקת האירוע (${err.message})`);
+      }
+      await finishSeriesOp(result, 'מחיקת האירועים');
+    },
   });
 
   new DayDetailPanel(
     { containerEl: byId('detailCard') },
     {
       onChangeLocationRequested: () => locationDialog.open(),
-      onAddEventRequested: (date) => addEventDialog.open(date),
+      onAddEventRequested: (date) => eventDialog.open(date),
+      onEventSelected: (ev) => eventDialog.openEdit(ev),
     }
   );
 

@@ -9,6 +9,7 @@ import * as EventsStore from '../state/EventsStore.js';
 import { HDate, hebMonthName, heDayStr, getDayInfoRange } from '../services/HebrewCalendarService.js';
 import { GREG_MONTHS_SHORT } from '../config/constants.js';
 import { toKey } from '../utils/dateFormat.js';
+import { escapeHtml } from '../utils/html.js';
 
 export class CalendarGrid {
   constructor({ gridEl }) {
@@ -83,7 +84,7 @@ export class CalendarGrid {
     // Small title chips (like a Google Calendar month cell): holidays first, then events.
     const chips = [];
     info.holidays.forEach(h => chips.push(`<div class="chip hol">${h}</div>`));
-    dayEvents.forEach(ev => chips.push(`<div class="chip ev">${ev.title}</div>`));
+    dayEvents.forEach(ev => chips.push(`<div class="chip ev">${escapeHtml(ev.title)}</div>`));
     const maxChips = (isShabbat && info.parsha) ? 1 : 2;
     const shown = chips.slice(0, maxChips);
     const extra = chips.length - shown.length;
