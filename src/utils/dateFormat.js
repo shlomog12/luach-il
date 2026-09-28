@@ -7,6 +7,12 @@ export function toKey(d) {
   return d.getFullYear() + "-" + String(d.getMonth() + 1).padStart(2, '0') + "-" + String(d.getDate()).padStart(2, '0');
 }
 
+/** Inverse of toKey: 'YYYY-MM-DD' -> local-midnight Date, or null if incomplete. */
+export function fromKey(key) {
+  const [y, m, d] = key.split('-').map(Number);
+  return (y && m && d) ? new Date(y, m - 1, d) : null;
+}
+
 export function fmtTime(d) {
   return d.toLocaleTimeString('he-IL', { hour: '2-digit', minute: '2-digit' });
 }

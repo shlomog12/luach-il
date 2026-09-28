@@ -57,3 +57,52 @@ export function getDayInfoRange(rangeStart, rangeEnd, toKey) {
   });
   return map;
 }
+
+/** Hebrew-date recurrences can't be expressed as a Google RRULE, so they're expanded here. */
+export const HEB_RECURRENCE_MAX = 100;
+
+/**
+ * The Gregorian dates of a recurrence by Hebrew date, starting with `start` itself.
+ * - 'hyearly': same Hebrew day and month each year, per the halachic birthday/
+ *   anniversary rules (Adar in leap years, 30 Cheshvan/Kislev in short years...).
+ * - 'hmonthly': same Hebrew day each month (Adar I and Adar II both count in a
+ *   leap year); day 30 falls back to the 29th in 29-day months.
+ * Stops after `count` dates or past `until` (whichever is given), capped at
+ * HEB_RECURRENCE_MAX.
+ * @param {Date} start
+ * @param {'hyearly'|'hmonthly'} freq
+ * @param {{count?: number, until?: Date}} end
+ * @returns {Date[]}
+ */
+export function hebrewRecurrenceDates(start, freq, { count, until }) {
+  const limit = Math.min(count || HEB_RECURRENCE_MAX, HEB_RECURRENCE_MAX);
+  const first = new HDate(start);
+  const dates = [];
+  let year = first.getFullYear();
+  let month = first.getMonth();
+  while (dates.length < limit) {
+    let hd;
+    if (dates.length === 0) {
+      hd = first;
+    } else if (freq === 'hyearly') {
+      year++;
+      hd = HebrewCalendar.getBirthdayOrAnniversary(year, first);
+    } else {
+      [year, month] = nextHebMonth(year, month);
+      hd = new HDate(Math.min(first.getDate(), HDate.daysInMonth(month, year)), month, year);
+    }
+    const g = hd.greg();
+    if (until && g > until) break;
+    dates.push(g);
+  }
+  return dates;
+}
+
+// Hebrew months are numbered from Nisan (1) but the year turns over at Tishrei (7);
+// a leap year has Adar I (12) followed by Adar II (13).
+function nextHebMonth(year, month) {
+  if (month === 6) return [year + 1, 7];
+  if (month === 12 && HDate.isLeapYear(year)) return [year, 13];
+  if (month === 12 || month === 13) return [year, 1];
+  return [year, month + 1];
+}

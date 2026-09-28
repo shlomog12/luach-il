@@ -5,7 +5,9 @@
 
 import { CLIENT_ID, CAL_SCOPE, CAL_WRITE_SCOPE, GCAL_DAYS_AHEAD } from './config/constants.js';
 import * as AuthService from './services/GoogleAuthService.js';
-import { fetchCalendarList, fetchUpcomingEvents, createEvent } from './services/GoogleCalendarService.js';
+import { fetchCalendarList, fetchUpcomingEvents, createEvent, createEventSeries } from './services/GoogleCalendarService.js';
+import { hebrewRecurrenceDates } from './services/HebrewCalendarService.js';
+import { toKey, fromKey } from './utils/dateFormat.js';
 import * as EventsStore from './state/EventsStore.js';
 
 import { ModeToggle } from './components/ModeToggle.js';
@@ -80,6 +82,12 @@ function boot() {
     timeRowEl: byId('evTimeRow'),
     startEl: byId('evStart'),
     endEl: byId('evEnd'),
+    repeatEl: byId('evRepeat'),
+    repeatEndRowEl: byId('evRepeatEndRow'),
+    repeatEndEl: byId('evRepeatEnd'),
+    repeatCountEl: byId('evRepeatCount'),
+    repeatUntilEl: byId('evRepeatUntil'),
+    repeatHintEl: byId('evRepeatHint'),
     descEl: byId('evDesc'),
     errEl: byId('evErr'),
     cancelBtn: byId('evCancelBtn'),
@@ -91,8 +99,21 @@ function boot() {
       if (!granted) throw new Error('לא ניתנה הרשאה להוספת אירועים ליומן Google');
       const token = AuthService.getAccessToken();
       if (!token) throw new Error('החיבור ל-Google פג — התחברו מחדש ונסו שוב');
+      const { recurrence, ...event } = input;
+      if (recurrence && (recurrence.freq === 'hyearly' || recurrence.freq === 'hmonthly')) {
+        // Google has no Hebrew-date RRULE, so each occurrence becomes its own event.
+        const dates = hebrewRecurrenceDates(fromKey(input.date), recurrence.freq, {
+          count: recurrence.count, until: recurrence.until && fromKey(recurrence.until),
+        }).map(toKey);
+        const { created, failed } = await createEventSeries(token, event, dates);
+        if (!created) throw new Error('שגיאה בשמירת האירועים');
+        await refreshEvents();
+        // Some were created, so the dialog closes (saving again would duplicate them).
+        if (failed) alert(`נוצרו ${created} מתוך ${dates.length} מופעים; ${failed} נכשלו.`);
+        return;
+      }
       try {
-        await createEvent(token, input);
+        await createEvent(token, { ...event, recurrence });
       } catch (err) {
         throw new Error(`שגיאה בשמירת האירוע (${err.message})`);
       }
