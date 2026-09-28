@@ -121,10 +121,12 @@ events is `GoogleCalendarService`'s responsibility).
 **Purpose**: fetch events from the Google Calendar API, given a valid token.
 
 **Public API**:
-- `async fetchUpcomingEvents(accessToken, daysAhead) -> Event[]`
+- `async fetchCalendarList(accessToken) -> Calendar[]`
+  where `Calendar = {id, summary, primary, writable}`
+- `async fetchUpcomingEvents(accessToken, daysAhead, calendars) -> Event[]`
   where `Event = {date, title, allDay, calendarName}`
-- `async createEvent(accessToken, {title, date, allDay, startTime, endTime, description}) -> object`
-  (inserts into the primary calendar; returns the created event resource)
+- `async createEvent(accessToken, {calendarId, title, date, allDay, startTime, endTime, description}) -> object`
+  (inserts into `calendarId`, default `'primary'`; returns the created event resource)
 
 **Allowed dependencies**: the global `fetch`, `config/constants.js` (for the
 day count), `utils/dateFormat.js` (date keys).

@@ -123,10 +123,10 @@ dialog#locDialog::backdrop, dialog#eventDialog::backdrop{background:rgba(0,0,0,0
 
 .add-event-btn{margin-top:4px;}
 .form-rows{display:flex;flex-direction:column;gap:8px;margin-bottom:10px;}
-.form-rows input[type=text], .form-rows input[type=date], .form-rows input[type=time], .form-rows textarea{
+.form-rows input[type=text], .form-rows input[type=date], .form-rows input[type=time], .form-rows textarea, .form-rows select{
   background:var(--panel-2);color:var(--text);border:1px solid var(--line);border-radius:8px;padding:8px;font-size:13px;font-family:inherit;color-scheme:dark;
 }
-.form-rows input[type=text], .form-rows textarea{width:100%;resize:vertical;}
+.form-rows input[type=text], .form-rows textarea, .form-rows select{width:100%;resize:vertical;}
 .form-row{display:flex;align-items:center;gap:8px;flex-wrap:wrap;}
 .form-row[hidden]{display:none;} /* same display-vs-[hidden] specificity issue as .jump-row */
 .form-row label{display:flex;align-items:center;gap:6px;font-size:13px;color:var(--text-dim);}

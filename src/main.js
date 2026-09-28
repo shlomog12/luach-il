@@ -5,7 +5,7 @@
 
 import { CLIENT_ID, CAL_SCOPE, CAL_WRITE_SCOPE, GCAL_DAYS_AHEAD } from './config/constants.js';
 import * as AuthService from './services/GoogleAuthService.js';
-import { fetchUpcomingEvents, createEvent } from './services/GoogleCalendarService.js';
+import { fetchCalendarList, fetchUpcomingEvents, createEvent } from './services/GoogleCalendarService.js';
 import * as EventsStore from './state/EventsStore.js';
 
 import { ModeToggle } from './components/ModeToggle.js';
@@ -58,7 +58,9 @@ function boot() {
     eventsListPanel.showLoading();
     try {
       const token = AuthService.getAccessToken();
-      const events = await fetchUpcomingEvents(token, GCAL_DAYS_AHEAD);
+      const calendars = await fetchCalendarList(token);
+      addEventDialog.setCalendars(calendars.filter(cal => cal.writable));
+      const events = await fetchUpcomingEvents(token, GCAL_DAYS_AHEAD, calendars);
       EventsStore.setEvents(events);
     } catch (err) {
       eventsListPanel.showError(err.message);
@@ -66,11 +68,12 @@ function boot() {
   }
 
   // Add event -> (first time only) ask Google for write access -> create in the
-  // primary calendar -> refetch, so the new event shows up everywhere exactly as
+  // chosen calendar -> refetch, so the new event shows up everywhere exactly as
   // Google stored it.
   const addEventDialog = new AddEventDialog({
     dialogEl: byId('eventDialog'),
     titleEl: byId('evTitle'),
+    calendarEl: byId('evCalendar'),
     dateEl: byId('evDate'),
     hebDateEl: byId('evHebDate'),
     allDayEl: byId('evAllDay'),
