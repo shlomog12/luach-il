@@ -62,7 +62,7 @@ created directly in their Google Calendar.
 - When connected, the day-detail card shows a "+ הוספת אירוע" button, which
   opens a dialog pre-filled with that day's date (the Hebrew date is shown
   next to the date field).
-- Fields: title (required), target calendar, date, "all day" checkbox, start/end time
+- Fields: title (required), target calendar, date, repeat, "all day" checkbox, start/end time
   (default 09:00–10:00; changing the start keeps a one-hour length), and an
   optional description. End time must be after start time.
 - On save: if the current token lacks `calendar.events`, the permission
@@ -79,6 +79,27 @@ created directly in their Google Calendar.
   Timed events send the wall-clock `dateTime` (no offset) plus the browser's
   IANA `timeZone`, so DST is resolved for the event's own date. All-day
   events use `date`, with the exclusive end date set to the next day.
+- **Repeat** (default "לא חוזר"), with labels naming the chosen date:
+  - *By Gregorian date* — daily, weekly (same weekday), monthly (same day of
+    month), yearly: created as **one recurring Google event** (`RRULE`), so
+    it can be edited/deleted as a series in Google Calendar. Ends: never,
+    after N times (≤ 999), or on a date (inclusive — `UNTIL` is a plain date
+    for all-day events, the end of that local day in UTC for timed ones).
+    Like Google itself, a monthly repeat on the 31st skips shorter months.
+  - *By Hebrew date* — every Hebrew month / every Hebrew year on the same
+    Hebrew day. Google's `RRULE` only knows the Gregorian calendar, so the
+    occurrences are computed with hebcal and created as **separate events**
+    (tagged with a shared `extendedProperties.private.luachSeriesId`), up to
+    4 requests in parallel. Needs an end (after N times or on a date, max
+    100 occurrences); a hint in the form says how many events will be
+    created and when the last one is. Yearly follows hebcal's
+    birthday/anniversary rules (`getBirthdayOrAnniversary`: Adar in leap
+    years, 30 Cheshvan/Kislev in short years, etc.); monthly counts both
+    Adar I and Adar II in a leap year, and day 30 falls back to the 29th in
+    29-day months.
+  - If only some of a Hebrew series fails to save, the dialog still closes
+    (saving again would duplicate the ones that were created) and an alert
+    says how many were created.
 - After a successful insert the events are refetched, so the new event
   appears in the grid, the day card and the 60-day list exactly as Google
   stored it.

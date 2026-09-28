@@ -112,6 +112,17 @@
         <label>מ-<input type="time" id="evStart"></label>
         <label>עד<input type="time" id="evEnd"></label>
       </div>
+      <select id="evRepeat" aria-label="חזרה"></select>
+      <div class="form-row" id="evRepeatEndRow" hidden>
+        <select id="evRepeatEnd" aria-label="סיום החזרה">
+          <option value="never">ללא סיום</option>
+          <option value="count">מספר פעמים</option>
+          <option value="until">עד תאריך</option>
+        </select>
+        <input type="number" id="evRepeatCount" min="1" step="1" aria-label="מספר פעמים">
+        <input type="date" id="evRepeatUntil" aria-label="עד תאריך">
+      </div>
+      <div class="repeat-hint" id="evRepeatHint" hidden></div>
       <textarea id="evDesc" rows="2" placeholder="תיאור (לא חובה)"></textarea>
       <div class="err" id="evErr" hidden></div>
     </div>

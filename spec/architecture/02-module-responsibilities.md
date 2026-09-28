@@ -125,8 +125,11 @@ events is `GoogleCalendarService`'s responsibility).
   where `Calendar = {id, summary, primary, writable}`
 - `async fetchUpcomingEvents(accessToken, daysAhead, calendars) -> Event[]`
   where `Event = {date, title, allDay, calendarName}`
-- `async createEvent(accessToken, {calendarId, title, date, allDay, startTime, endTime, description}) -> object`
-  (inserts into `calendarId`, default `'primary'`; returns the created event resource)
+- `async createEvent(accessToken, {calendarId, title, date, allDay, startTime, endTime, description, recurrence}) -> object`
+  (inserts into `calendarId`, default `'primary'`; `recurrence` =
+  `{freq, count?, until?}` becomes an `RRULE`; returns the created event resource)
+- `async createEventSeries(accessToken, input, dates) -> {created, failed}`
+  (one separate event per date — for Hebrew-date repeats)
 
 **Allowed dependencies**: the global `fetch`, `config/constants.js` (for the
 day count), `utils/dateFormat.js` (date keys).

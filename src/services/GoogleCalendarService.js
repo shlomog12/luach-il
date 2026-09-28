@@ -62,13 +62,17 @@ export async function fetchUpcomingEvents(accessToken, daysAhead, calendars) {
  * Creates an event on the given calendar (default: primary). Dates/times are the
  * wall-clock values the user typed, interpreted in the browser's time zone.
  * @param {string} accessToken
- * @param {{calendarId?: string, title: string, date: string, allDay: boolean, startTime?: string, endTime?: string, description?: string}} input
- *   date: 'YYYY-MM-DD'; startTime/endTime: 'HH:MM' (required unless allDay)
+ * @param {{calendarId?: string, title: string, date: string, allDay: boolean, startTime?: string, endTime?: string, description?: string, recurrence?: GregRecurrence, seriesId?: string}} input
+ *   date: 'YYYY-MM-DD'; startTime/endTime: 'HH:MM' (required unless allDay);
+ *   recurrence makes it a recurring Google event; seriesId tags one event of a
+ *   createEventSeries() batch
  * @returns {Promise<object>} the created Google Calendar event resource
  */
-export async function createEvent(accessToken, { calendarId = 'primary', title, date, allDay, startTime, endTime, description }) {
+export async function createEvent(accessToken, { calendarId = 'primary', title, date, allDay, startTime, endTime, description, recurrence, seriesId }) {
   const body = { summary: title };
   if (description) body.description = description;
+  if (recurrence) body.recurrence = [toRRule(recurrence, allDay)];
+  if (seriesId) body.extendedProperties = { private: { luachSeriesId: seriesId } };
   if (allDay) {
     // All-day end dates are exclusive in the Calendar API — a one-day event ends the next day.
     const [y, m, d] = date.split('-').map(Number);
@@ -89,4 +93,53 @@ export async function createEvent(accessToken, { calendarId = 'primary', title, 
   });
   if (!res.ok) throw new Error('events.insert ' + res.status);
   return res.json();
+}
+
+/**
+ * @typedef {{freq: 'daily'|'weekly'|'monthly'|'yearly', count?: number, until?: string}} GregRecurrence
+ *   until: 'YYYY-MM-DD', inclusive. Neither count nor until = repeats forever.
+ */
+
+// Weekly/monthly/yearly repeat on the start date's weekday/day-of-month/date,
+// which is the RRULE default, so no BYDAY/BYMONTHDAY is needed.
+function toRRule({ freq, count, until }, allDay) {
+  let rule = 'RRULE:FREQ=' + freq.toUpperCase();
+  if (count) {
+    rule += ';COUNT=' + count;
+  } else if (until) {
+    const [y, m, d] = until.split('-').map(Number);
+    // UNTIL must match DTSTART's type: a plain date for all-day events, a UTC
+    // date-time for timed ones (end of that local day, so it's inclusive).
+    rule += ';UNTIL=' + (allDay
+      ? until.replaceAll('-', '')
+      : new Date(y, m - 1, d, 23, 59, 59).toISOString().replace(/[-:]|\.\d{3}/g, ''));
+  }
+  return rule;
+}
+
+/**
+ * Creates one separate event per date (for recurrences Google's RRULE can't
+ * express, like by Hebrew date), all tagged with a shared series id. A few
+ * requests run in parallel to stay well under the API's rate limits.
+ * @param {string} accessToken
+ * @param {object} input same as createEvent's, minus date/recurrence
+ * @param {string[]} dates 'YYYY-MM-DD' each
+ * @returns {Promise<{created: number, failed: number}>}
+ */
+export async function createEventSeries(accessToken, input, dates) {
+  const seriesId = Date.now().toString(36) + Math.random().toString(36).slice(2, 8);
+  let created = 0, failed = 0, next = 0;
+  async function worker() {
+    while (next < dates.length) {
+      const date = dates[next++];
+      try {
+        await createEvent(accessToken, { ...input, date, seriesId });
+        created++;
+      } catch (e) {
+        failed++;
+      }
+    }
+  }
+  await Promise.all(Array.from({ length: Math.min(4, dates.length) }, worker));
+  return { created, failed };
 }
