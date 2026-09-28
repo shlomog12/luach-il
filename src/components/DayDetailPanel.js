@@ -1,5 +1,6 @@
 // The "detail" card for the currently displayed day: a always-visible block of
-// that day's parsha/holidays/Google events, plus a collapsible "זמני היום"
+// that day's parsha/holidays/Google events (and, when connected, an "add event"
+// button for that day), plus a collapsible "זמני היום"
 // section with the full daily zmanim list, a location line, and a credit note.
 
 import * as ViewModeStore from '../state/ViewModeStore.js';
@@ -7,6 +8,7 @@ import * as NavStore from '../state/CalendarNavigationStore.js';
 import * as LocationStore from '../state/LocationStore.js';
 import * as ZmanStore from '../state/ZmanimDisclosureStore.js';
 import * as EventsStore from '../state/EventsStore.js';
+import * as AuthService from '../services/GoogleAuthService.js';
 import { HDate, hebMonthName, heDayStr, gematriya, getDayInfoRange } from '../services/HebrewCalendarService.js';
 import { getDailyZmanim } from '../services/ZmanimService.js';
 import { GREG_MONTHS, WEEKDAY_HE } from '../config/constants.js';
@@ -15,11 +17,14 @@ import { toKey, fmtTime } from '../utils/dateFormat.js';
 export class DayDetailPanel {
   /**
    * @param {{containerEl: HTMLElement}} els
-   * @param {{onChangeLocationRequested: () => void}} deps
+   * @param {{onChangeLocationRequested: () => void, onAddEventRequested: (date: Date) => void}} deps
    */
-  constructor({ containerEl }, { onChangeLocationRequested }) {
+  constructor({ containerEl }, { onChangeLocationRequested, onAddEventRequested }) {
     this.containerEl = containerEl;
     this.onChangeLocationRequested = onChangeLocationRequested;
+    this.onAddEventRequested = onAddEventRequested;
+    this.connected = false;
+    AuthService.onAuthChange((status) => { this.connected = status === true; this.render(); });
     NavStore.onChange(() => this.render());
     ViewModeStore.onViewModeChange(() => this.render());
     LocationStore.onLocationChange(() => this.render());
@@ -54,6 +59,9 @@ export class DayDetailPanel {
     if (!eventsHtml) {
       eventsHtml = `<div class="events-empty">אין אירועים או חגים ביום זה.</div>`;
     }
+    if (this.connected) {
+      eventsHtml += `<button class="btn btn-sm add-event-btn" id="addEventBtn" type="button">+ הוספת אירוע</button>`;
+    }
     html += `<div class="day-events">${eventsHtml}</div>`;
 
     // --- Daily halachic times: shown every day, but collapsed by default so it
@@ -86,5 +94,6 @@ export class DayDetailPanel {
     // #locBtn is regenerated on every render, so its listener is (re-)attached here
     // rather than once — main.js wires onChangeLocationRequested to LocationDialog.open().
     this.containerEl.querySelector('#locBtn').addEventListener('click', () => this.onChangeLocationRequested());
+    this.containerEl.querySelector('#addEventBtn')?.addEventListener('click', () => this.onAddEventRequested(dateObj));
   }
 }

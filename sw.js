@@ -1,4 +1,4 @@
-const CACHE = 'luach-v5';
+const CACHE = 'luach-v6';
 const ASSETS = [
   './', './index.html', './manifest.json', './icon.svg', './privacy.html',
   './icon-180.png', './icon-192.png', './icon-512.png', './favicon-32.png',
@@ -15,6 +15,7 @@ const ASSETS = [
   './src/components/CalendarGrid.js', './src/components/DayDetailPanel.js',
   './src/components/EventsListPanel.js', './src/components/LocationDialog.js',
   './src/components/JumpToDatePanel.js', './src/components/AuthStatusBar.js',
+  './src/components/AddEventDialog.js',
   './src/utils/dateFormat.js', './src/utils/safeStorage.js',
 ];
 
