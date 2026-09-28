@@ -112,11 +112,24 @@ details.card[open] > summary{margin-bottom:10px;}
 .foot-note{font-size:11px; color:var(--text-faint); line-height:1.8; text-align:center;}
 .foot-note a{color:var(--amber);}
 
-dialog#locDialog{background:var(--panel);color:var(--text);border:1px solid var(--line);border-radius:12px;padding:0;max-width:340px;width:90vw;}
-dialog#locDialog::backdrop{background:rgba(0,0,0,0.55);}
+dialog#locDialog, dialog#eventDialog{background:var(--panel);color:var(--text);border:1px solid var(--line);border-radius:12px;padding:0;max-width:340px;width:90vw;}
+dialog#locDialog::backdrop, dialog#eventDialog::backdrop{background:rgba(0,0,0,0.55);}
 .dlg-inner{padding:16px;}
 .loc-select{width:100%;background:var(--panel-2);color:var(--text);border:1px solid var(--line);border-radius:8px;padding:9px;font-size:14px;font-family:inherit;margin-bottom:10px;}
 .custom-loc-row{display:flex;flex-direction:column;gap:8px;margin-bottom:10px;}
 .custom-loc-row[hidden]{display:none;} /* same display-vs-[hidden] specificity issue as .jump-row */
 .custom-loc-row input{background:var(--panel-2);color:var(--text);border:1px solid var(--line);border-radius:8px;padding:8px;font-size:13px;font-family:inherit;width:100%;}
 .dlg-actions{display:flex;justify-content:flex-end;gap:8px;margin-top:4px;}
+
+.add-event-btn{margin-top:4px;}
+.form-rows{display:flex;flex-direction:column;gap:8px;margin-bottom:10px;}
+.form-rows input[type=text], .form-rows input[type=date], .form-rows input[type=time], .form-rows textarea{
+  background:var(--panel-2);color:var(--text);border:1px solid var(--line);border-radius:8px;padding:8px;font-size:13px;font-family:inherit;color-scheme:dark;
+}
+.form-rows input[type=text], .form-rows textarea{width:100%;resize:vertical;}
+.form-row{display:flex;align-items:center;gap:8px;flex-wrap:wrap;}
+.form-row[hidden]{display:none;} /* same display-vs-[hidden] specificity issue as .jump-row */
+.form-row label{display:flex;align-items:center;gap:6px;font-size:13px;color:var(--text-dim);}
+.heb-date-hint{font-size:12px;color:var(--amber);}
+.check-row{display:flex;align-items:center;gap:6px;font-size:13px;color:var(--text-dim);}
+.btn:disabled{opacity:0.6;cursor:default;}

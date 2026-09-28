@@ -102,6 +102,9 @@ silent refresh, manual fallback, token storage.
 - `getValidAccessToken() -> Promise<string | null>` (tries a cached session
   token → silent refresh → returns `null` if manual consent is needed)
 - `requestConsent() -> void` (triggers the consent popup)
+- `requestScope(scope) -> Promise<boolean>` (incremental authorization for
+  an extra scope, e.g. write access; must be called from a user gesture)
+- `hasScope(scope) -> boolean`
 - `onAuthChange(callback)` — pub/sub to announce connection-status changes
   (used by `AuthStatusBar`, see [03](03-state-management-pattern.md))
 
@@ -120,9 +123,11 @@ events is `GoogleCalendarService`'s responsibility).
 **Public API**:
 - `async fetchUpcomingEvents(accessToken, daysAhead) -> Event[]`
   where `Event = {date, title, allDay, calendarName}`
+- `async createEvent(accessToken, {title, date, allDay, startTime, endTime, description}) -> object`
+  (inserts into the primary calendar; returns the created event resource)
 
 **Allowed dependencies**: the global `fetch`, `config/constants.js` (for the
-day count).
+day count), `utils/dateFormat.js` (date keys).
 
 **Must not**: know how a token is obtained (receives it as a parameter) —
 fully decoupled from `GoogleAuthService`. The two services are only

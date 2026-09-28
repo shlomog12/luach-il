@@ -2,6 +2,9 @@
 
 export const CLIENT_ID = "964103737504-s8r1hp6o18plebl7nsh26u8okkb2hauo.apps.googleusercontent.com";
 export const CAL_SCOPE = "https://www.googleapis.com/auth/calendar.readonly";
+// Requested only when the user first adds an event (incremental authorization),
+// so the silent refresh on every visit keeps asking for read access only.
+export const CAL_WRITE_SCOPE = "https://www.googleapis.com/auth/calendar.events";
 export const GCAL_DAYS_AHEAD = 60;
 
 export const STORAGE_KEYS = {
@@ -10,6 +13,7 @@ export const STORAGE_KEYS = {
   ZMAN_OPEN: 'luach_zman_open',
   GCAL_TOKEN: 'gcal_token',
   GCAL_TOKEN_EXP: 'gcal_token_exp',
+  GCAL_TOKEN_SCOPE: 'gcal_token_scope',
 };
 
 // Jump-to-date dropdown year window: not infinite, a reasonable span either side of today.

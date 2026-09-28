@@ -47,11 +47,17 @@
     <h2>גישה ליומן Google</h2>
     <p>
       אם תבחרו להתחבר עם חשבון Google, האתר מבקש הרשאת
-      <strong>קריאה בלבד</strong> (<code>calendar.readonly</code>) ליומן
+      <strong>קריאה</strong> (<code>calendar.readonly</code>) ליומן
       Google Calendar שלכם — כדי להציג את האירועים שלכם בתוך הלוח.
     </p>
+    <p>
+      רק אם תבחרו להוסיף אירוע מתוך האתר, Google יבקש מכם אישור נוסף
+      להרשאת <strong>ניהול אירועים</strong> (<code>calendar.events</code>),
+      שבה האתר משתמש אך ורק כדי ליצור את האירוע שמילאתם, ביומן הראשי שלכם.
+    </p>
     <ul>
-      <li>האתר <strong>לא</strong> יכול להוסיף, לשנות או למחוק אירועים ביומן שלכם.</li>
+      <li>האתר <strong>לא</strong> משנה ולא מוחק אירועים קיימים ביומן שלכם, ויוצר
+        אירוע רק כשאתם לוחצים "שמירה" בטופס הוספת האירוע.</li>
       <li>האירועים שנשלפים מוצגים <strong>רק בדפדפן שלכם</strong> — הם לעולם לא
         נשלחים לשום שרת שלנו (כי אין כזה), ולא משותפים עם אף צד שלישי.</li>
       <li>אסימון ההתחברות (access token) נשמר זמנית בזיכרון הדפדפן
@@ -79,7 +85,7 @@
   <div class="card">
     <h2>שירותי צד שלישי בשימוש</h2>
     <ul>
-      <li><strong>Google Identity Services / Google Calendar API</strong> — לאימות ולשליפת אירועי היומן, כמתואר למעלה.</li>
+      <li><strong>Google Identity Services / Google Calendar API</strong> — לאימות, לשליפת אירועי היומן ולהוספת אירועים שיצרתם, כמתואר למעלה.</li>
       <li><strong>Open-Meteo</strong> (שירות ציבורי וחינמי) — רק כאשר בוחרים
         "מיקום מותאם אישית", נשלחות אליו הקואורדינטות (קו רוחב/אורך) בלבד
         כדי לחשב גובה מעל פני הים לצורך זמני היום. לא נשלח שום מידע מזהה.</li>
@@ -96,10 +102,12 @@
     <div class="en">
       <strong>English summary:</strong> This is a personal, client-side-only
       web app with no backend server. If you sign in with Google, it requests
-      read-only access to your Google Calendar (<code>calendar.readonly</code>)
-      solely to display your events locally in your own browser — it cannot
-      modify your calendar, and your data is never sent to any server or third
-      party. The access token lives only in sessionStorage and is cleared when
+      read access to your Google Calendar (<code>calendar.readonly</code>)
+      solely to display your events locally in your own browser. Only if you
+      choose to add an event from the site does it ask for the additional
+      <code>calendar.events</code> permission, used solely to create the event
+      you filled in on your primary calendar — it never modifies or deletes
+      existing events. Your data is never sent to any server or third party. The access token lives only in sessionStorage and is cleared when
       you close the tab. A few non-personal preferences (chosen location, view
       mode) are kept in localStorage. Questions: shlomog12@gmail.com
     </div>

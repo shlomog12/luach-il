@@ -97,6 +97,30 @@
   </div>
 </dialog>
 
+<dialog id="eventDialog">
+  <div class="dlg-inner">
+    <div class="section-title">הוספת אירוע ליומן Google</div>
+    <div class="form-rows">
+      <input type="text" id="evTitle" placeholder="כותרת האירוע" maxlength="200">
+      <div class="form-row">
+        <input type="date" id="evDate" aria-label="תאריך">
+        <span class="heb-date-hint" id="evHebDate"></span>
+      </div>
+      <label class="check-row"><input type="checkbox" id="evAllDay"> כל היום</label>
+      <div class="form-row" id="evTimeRow">
+        <label>מ-<input type="time" id="evStart"></label>
+        <label>עד<input type="time" id="evEnd"></label>
+      </div>
+      <textarea id="evDesc" rows="2" placeholder="תיאור (לא חובה)"></textarea>
+      <div class="err" id="evErr" hidden></div>
+    </div>
+    <div class="dlg-actions">
+      <button class="btn" id="evCancelBtn" type="button">ביטול</button>
+      <button class="btn" id="evSaveBtn" type="button">שמירה</button>
+    </div>
+  </div>
+</dialog>
+
 <script src="https://accounts.google.com/gsi/client" async defer></script>
 <script src="https://cdn.jsdelivr.net/npm/@hebcal/core@6.9.2/dist/bundle.min.js"></script>
 <script type="module" src="./src/main.js"></script>

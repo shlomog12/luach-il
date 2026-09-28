@@ -4,8 +4,8 @@
 
 A web app (PWA) that displays a Hebrew/Gregorian calendar, daily halachic
 times, holidays, and the weekly Torah portion, synced with the user's Google
-Calendar (read-only) — so an event added in Google Calendar also shows up in
-the site's calendar.
+Calendar — an event added in Google Calendar also shows up in the site's
+calendar, and an event added from the site is created in Google Calendar.
 
 Intended for personal use, not mass distribution (though there's no technical
 obstacle to that).
@@ -16,7 +16,7 @@ obstacle to that).
 |---|---|
 | **No server/backend** | Simplicity, zero cost, no sensitive data to secure server-side |
 | **Static files only, served as-is** | Easy to host on any static hosting service, no build step |
-| **Read-only from Google Calendar** (`calendar.readonly`) | Minimal scope; extending to write access is a conscious future decision (see [04](04-google-calendar-integration.md)) |
+| **Minimal Google Calendar scope** (`calendar.readonly`, plus `calendar.events` only once the user adds an event) | Write access is requested incrementally, only when actually needed (see [04](04-google-calendar-integration.md)) |
 | **Astronomical/halachic calculations run client-side** | Works offline (aside from Google events), no network dependency for basic availability |
 | **Holidays/parsha follow the Israel calendar only** | `il:true` — single-day Yom Tov, not two days like in the Diaspora |
 
