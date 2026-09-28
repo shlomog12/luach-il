@@ -2,7 +2,10 @@
 // token was obtained (GoogleAuthService) or where the results get stored
 // (EventsStore) — those are wired together in main.js.
 
-import { toKey } from '../utils/dateFormat.js';
+import { toKey, fromKey } from '../utils/dateFormat.js';
+
+const API = 'https://www.googleapis.com/calendar/v3';
+const eventsUrl = (calendarId) => `${API}/calendars/${encodeURIComponent(calendarId)}/events`;
 
 /**
  * All of the user's calendars. `writable` is true where the user may add events
@@ -11,7 +14,7 @@ import { toKey } from '../utils/dateFormat.js';
  * @returns {Promise<{id: string, summary: string, primary: boolean, writable: boolean}[]>}
  */
 export async function fetchCalendarList(accessToken) {
-  const res = await fetch('https://www.googleapis.com/calendar/v3/users/me/calendarList', {
+  const res = await fetch(`${API}/users/me/calendarList`, {
     headers: { Authorization: 'Bearer ' + accessToken },
   });
   if (!res.ok) throw new Error('calendarList ' + res.status);
@@ -27,8 +30,8 @@ export async function fetchCalendarList(accessToken) {
 /**
  * @param {string} accessToken
  * @param {number} daysAhead
- * @param {{id: string, summary: string}[]} calendars from fetchCalendarList
- * @returns {Promise<{date: Date, title: string, allDay: boolean, calName: string}[]>}
+ * @param {{id: string, summary: string, writable: boolean}[]} calendars from fetchCalendarList
+ * @returns {Promise<CalEvent[]>}
  */
 export async function fetchUpcomingEvents(accessToken, daysAhead, calendars) {
   const now = new Date();
@@ -37,7 +40,7 @@ export async function fetchUpcomingEvents(accessToken, daysAhead, calendars) {
 
   const all = [];
   await Promise.all(calendars.map(async cal => {
-    const url = `https://www.googleapis.com/calendar/v3/calendars/${encodeURIComponent(cal.id)}/events`
+    const url = eventsUrl(cal.id)
       + `?timeMin=${encodeURIComponent(timeMin)}&timeMax=${encodeURIComponent(timeMax)}`
       + `&singleEvents=true&orderBy=startTime&maxResults=50`;
     try {
@@ -46,9 +49,7 @@ export async function fetchUpcomingEvents(accessToken, daysAhead, calendars) {
       const data = await r.json();
       (data.items || []).forEach(ev => {
         if (ev.status === 'cancelled') return;
-        const allDay = !!ev.start.date;
-        const dateStr = ev.start.dateTime || ev.start.date;
-        all.push({ date: new Date(dateStr), title: ev.summary || '(ללא כותרת)', allDay, calName: cal.summary });
+        all.push(toCalEvent(ev, cal));
       });
     } catch (e) {
       // skip this calendar on error — one bad calendar shouldn't hide the rest
@@ -56,6 +57,46 @@ export async function fetchUpcomingEvents(accessToken, daysAhead, calendars) {
   }));
 
   return all.sort((a, b) => a.date - b.date);
+}
+
+/**
+ * @typedef {object} CalEvent
+ * @property {string} id               event id (for a recurring event: this instance's id)
+ * @property {string} calendarId
+ * @property {Date} date               start (local midnight for all-day events)
+ * @property {Date} end                end (exclusive)
+ * @property {string} title            display title ('(ללא כותרת)' if empty)
+ * @property {string} summary          raw title, as stored in Google
+ * @property {string} description
+ * @property {boolean} allDay
+ * @property {boolean} multiDay        spans more than one day (the form can't edit its times)
+ * @property {string} calName
+ * @property {boolean} editable        the user may change it (writable calendar, and organizer or guests-can-modify)
+ * @property {string|null} recurringEventId  set on instances of a Google recurring event
+ * @property {string|null} seriesId    set on events created as a Hebrew-date series (createEventSeries)
+ */
+function toCalEvent(ev, cal) {
+  const allDay = !!ev.start.date;
+  const date = allDay ? fromKey(ev.start.date) : new Date(ev.start.dateTime);
+  const end = allDay ? fromKey(ev.end.date) : new Date(ev.end.dateTime);
+  const multiDay = allDay
+    ? (end - date) > 86400000 * 1.5 // DST-safe "more than one day"
+    : toKey(date) !== toKey(new Date(end - 1));
+  return {
+    id: ev.id,
+    calendarId: cal.id,
+    date,
+    end,
+    title: ev.summary || '(ללא כותרת)',
+    summary: ev.summary || '',
+    description: ev.description || '',
+    allDay,
+    multiDay,
+    calName: cal.summary,
+    editable: !!cal.writable && (ev.organizer?.self !== false || !!ev.guestsCanModify),
+    recurringEventId: ev.recurringEventId || null,
+    seriesId: ev.extendedProperties?.private?.luachSeriesId || null,
+  };
 }
 
 /**
@@ -73,26 +114,42 @@ export async function createEvent(accessToken, { calendarId = 'primary', title, 
   if (description) body.description = description;
   if (recurrence) body.recurrence = [toRRule(recurrence, allDay)];
   if (seriesId) body.extendedProperties = { private: { luachSeriesId: seriesId } };
-  if (allDay) {
-    // All-day end dates are exclusive in the Calendar API — a one-day event ends the next day.
-    const [y, m, d] = date.split('-').map(Number);
-    body.start = { date };
-    body.end = { date: toKey(new Date(y, m - 1, d + 1)) };
-  } else {
-    // No offset in dateTime: the API interprets it in the explicit timeZone, which
-    // gets DST right for the event's own date (not today's offset).
-    const timeZone = Intl.DateTimeFormat().resolvedOptions().timeZone;
-    body.start = { dateTime: `${date}T${startTime}:00`, timeZone };
-    body.end = { dateTime: `${date}T${endTime}:00`, timeZone };
-  }
+  Object.assign(body, toStartEnd({ date, allDay, startTime, endTime }));
 
-  const res = await fetch(`https://www.googleapis.com/calendar/v3/calendars/${encodeURIComponent(calendarId)}/events`, {
+  const res = await fetch(eventsUrl(calendarId), {
     method: 'POST',
     headers: { Authorization: 'Bearer ' + accessToken, 'Content-Type': 'application/json' },
     body: JSON.stringify(body),
   });
   if (!res.ok) throw new Error('events.insert ' + res.status);
   return res.json();
+}
+
+/**
+ * start/end for a single-day event. Both date and dateTime are always sent
+ * (one of them null) so a PATCH can switch an event between all-day and timed.
+ */
+function toStartEnd({ date, allDay, startTime, endTime }) {
+  if (allDay) {
+    // All-day end dates are exclusive in the Calendar API — a one-day event ends the next day.
+    const d = fromKey(date);
+    return {
+      start: { date, dateTime: null, timeZone: null },
+      end: { date: toKey(new Date(d.getFullYear(), d.getMonth(), d.getDate() + 1)), dateTime: null, timeZone: null },
+    };
+  }
+  // No offset in dateTime: the API interprets it in the explicit timeZone, which
+  // gets DST right for the event's own date (not today's offset).
+  const timeZone = Intl.DateTimeFormat().resolvedOptions().timeZone;
+  return {
+    start: { date: null, dateTime: `${date}T${startTime}:00`, timeZone },
+    end: { date: null, dateTime: `${date}T${endTime}:00`, timeZone },
+  };
+}
+
+/** An event resource's own (local) start date, 'YYYY-MM-DD'. */
+function ownDate(resource) {
+  return resource.start.date || toKey(new Date(resource.start.dateTime));
 }
 
 /**
@@ -128,18 +185,107 @@ function toRRule({ freq, count, until }, allDay) {
  */
 export async function createEventSeries(accessToken, input, dates) {
   const seriesId = Date.now().toString(36) + Math.random().toString(36).slice(2, 8);
-  let created = 0, failed = 0, next = 0;
+  const { done, failed } = await runPool(dates, date => createEvent(accessToken, { ...input, date, seriesId }));
+  return { created: done, failed };
+}
+
+/** Runs task(item) for every item, a few at a time. */
+async function runPool(items, task, concurrency = 4) {
+  let done = 0, failed = 0, next = 0;
   async function worker() {
-    while (next < dates.length) {
-      const date = dates[next++];
+    while (next < items.length) {
+      const item = items[next++];
       try {
-        await createEvent(accessToken, { ...input, date, seriesId });
-        created++;
+        await task(item);
+        done++;
       } catch (e) {
         failed++;
       }
     }
   }
-  await Promise.all(Array.from({ length: Math.min(4, dates.length) }, worker));
-  return { created, failed };
+  await Promise.all(Array.from({ length: Math.min(concurrency, items.length) }, worker));
+  return { done, failed };
+}
+
+async function api(accessToken, url, { method = 'GET', body } = {}) {
+  const res = await fetch(url, {
+    method,
+    headers: { Authorization: 'Bearer ' + accessToken, ...(body ? { 'Content-Type': 'application/json' } : {}) },
+    body: body ? JSON.stringify(body) : undefined,
+  });
+  // 410 Gone on DELETE = already deleted, which is what we wanted anyway.
+  if (method === 'DELETE' && res.status === 410) return null;
+  if (!res.ok) throw new Error(`${method} ${res.status}`);
+  return res.status === 204 ? null : res.json();
+}
+
+/** Every event of a Hebrew-date series (all dates, past and future). */
+async function listSeries(accessToken, calendarId, seriesId) {
+  const url = eventsUrl(calendarId) + '?maxResults=250&privateExtendedProperty='
+    + encodeURIComponent('luachSeriesId=' + seriesId);
+  const data = await api(accessToken, url);
+  return (data.items || []).filter(ev => ev.status !== 'cancelled');
+}
+
+/**
+ * @typedef {object} EventChanges
+ * @property {string} title
+ * @property {string} description
+ * @property {null | {date?: string, allDay: boolean, startTime?: string, endTime?: string}} timing
+ *   null = keep date/times as they are. No `date` = keep each event's own date
+ *   (used when changing a whole series).
+ */
+
+/** @param {string} eventDate the event's own date, used when timing has no date */
+function patchBody(eventDate, { title, description, timing }) {
+  const body = { summary: title, description };
+  if (timing) Object.assign(body, toStartEnd({ ...timing, date: timing.date || eventDate }));
+  return body;
+}
+
+/**
+ * Edits an event. scope 'one' = just this event (or this one instance of a
+ * recurring event); 'all' = the whole series it belongs to — a Google recurring
+ * event (edits its master) or a Hebrew-date series (edits each of its events).
+ * @param {string} accessToken
+ * @param {CalEvent} ev
+ * @param {'one'|'all'} scope
+ * @param {EventChanges} changes
+ * @returns {Promise<{done: number, failed: number}>}
+ */
+export async function updateEvent(accessToken, ev, scope, changes) {
+  const patch = (id, eventDate) => api(accessToken, `${eventsUrl(ev.calendarId)}/${encodeURIComponent(id)}`,
+    { method: 'PATCH', body: patchBody(eventDate, changes) });
+
+  if (scope === 'all' && ev.recurringEventId) {
+    // The master's own date is the series' first occurrence — keep it.
+    const master = await api(accessToken, `${eventsUrl(ev.calendarId)}/${encodeURIComponent(ev.recurringEventId)}`);
+    await patch(master.id, ownDate(master));
+    return { done: 1, failed: 0 };
+  }
+  if (scope === 'all' && ev.seriesId) {
+    const events = await listSeries(accessToken, ev.calendarId, ev.seriesId);
+    return runPool(events, resource => patch(resource.id, ownDate(resource)));
+  }
+  await patch(ev.id, toKey(ev.date));
+  return { done: 1, failed: 0 };
+}
+
+/**
+ * Deletes an event; scope as in updateEvent. Deleting one instance of a Google
+ * recurring event leaves the rest of the series in place.
+ * @returns {Promise<{done: number, failed: number}>}
+ */
+export async function deleteEvent(accessToken, ev, scope) {
+  const del = (id) => api(accessToken, `${eventsUrl(ev.calendarId)}/${encodeURIComponent(id)}`, { method: 'DELETE' });
+
+  if (scope === 'all' && ev.recurringEventId) {
+    await del(ev.recurringEventId);
+    return { done: 1, failed: 0 };
+  }
+  if (scope === 'all' && ev.seriesId) {
+    return runPool(await listSeries(accessToken, ev.calendarId, ev.seriesId), resource => del(resource.id));
+  }
+  await del(ev.id);
+  return { done: 1, failed: 0 };
 }

@@ -1,7 +1,8 @@
-// The "הוספת אירוע" dialog: a small form (title, target calendar, date,
-// all-day or start/end time, repeat, description) that hands the result to
-// onSave. Doesn't know about Google at all — main.js wires onSave to
-// GoogleAuthService + GoogleCalendarService.
+// The event dialog: a small form (title, target calendar, date, all-day or
+// start/end time, repeat, description) used both to add an event (open) and to
+// edit or delete an existing one (openEdit). Hands the result to onSave /
+// onUpdate / onDelete. Doesn't know about Google at all — main.js wires those
+// to GoogleAuthService + GoogleCalendarService.
 
 import { HDate, hebMonthName, heDayStr, gematriya, hebrewRecurrenceDates, HEB_RECURRENCE_MAX } from '../services/HebrewCalendarService.js';
 import { toKey, fromKey } from '../utils/dateFormat.js';
@@ -11,20 +12,39 @@ const HEB_FREQS = ['hyearly', 'hmonthly'];
 const GREG_COUNT_MAX = 999;
 const DEFAULT_REPEAT_COUNT = 10;
 
-export class AddEventDialog {
+const ADD_HEADING = 'הוספת אירוע ליומן Google';
+const EDIT_HEADING = 'עריכת אירוע';
+const DELETE_LABEL = 'מחיקה';
+const DELETE_CONFIRM_LABEL = 'לחצו שוב למחיקה';
+
+export class EventDialog {
   /**
-   * @param {{dialogEl, titleEl, calendarEl, dateEl, hebDateEl, allDayEl, timeRowEl, startEl, endEl,
+   * @param {{dialogEl, headingEl, scopeEl, noteEl, deleteBtn, titleEl, calendarEl, dateEl, hebDateEl, allDayEl, timeRowEl, startEl, endEl,
    *   repeatEl, repeatEndRowEl, repeatEndEl, repeatCountEl, repeatUntilEl, repeatHintEl,
    *   descEl, errEl, cancelBtn, saveBtn}} els
    * @param {{onSave: (input: {calendarId: string, title: string, date: string, allDay: boolean, startTime: string, endTime: string,
    *   description: string, recurrence: null | {freq: string, count?: number, until?: string}}) => Promise<void>}} deps
    *   freq: 'daily'|'weekly'|'monthly'|'yearly' (Gregorian) or 'hyearly'|'hmonthly' (Hebrew date)
+   * @param {(ev: object, scope: 'one'|'all', changes: {title: string, description: string,
+   *   timing: null | {date?: string, allDay: boolean, startTime: string, endTime: string}}) => Promise<void>} deps.onUpdate
+   *   timing null = date/times unchanged; no timing.date = keep each event's own date (scope 'all')
+   * @param {(ev: object, scope: 'one'|'all') => Promise<void>} deps.onDelete
    */
-  constructor(els, { onSave }) {
+  constructor(els, { onSave, onUpdate, onDelete }) {
     this.els = els;
     this.onSave = onSave;
+    this.onUpdate = onUpdate;
+    this.onDelete = onDelete;
     /** Last calendar saved to — preselected next time (for this visit only). */
     this.lastCalendarId = null;
+    this.primaryId = null;
+    /** The event being edited (null when adding), and its date/times as loaded. */
+    this.editing = null;
+    this.original = null;
+    this.deleteArmed = false;
+
+    this.els.scopeEl.addEventListener('change', () => this._syncScope());
+    this.els.deleteBtn.addEventListener('click', () => this._handleDelete());
 
     this.els.allDayEl.addEventListener('change', () => this._syncTimeRow());
     this.els.dateEl.addEventListener('input', () => { this._renderHebDate(); this._renderRepeatOptions(); this._syncRepeat(); });
@@ -51,25 +71,29 @@ export class AddEventDialog {
     const selectEl = this.els.calendarEl;
     const prev = selectEl.value;
     selectEl.innerHTML = '';
+    this.primaryId = calendars.find(cal => cal.primary)?.id || null;
     // Primary first, the rest alphabetically.
     [...calendars]
       .sort((a, b) => (b.primary - a.primary) || a.summary.localeCompare(b.summary, 'he'))
       .forEach(cal => {
         const opt = document.createElement('option');
-        opt.value = cal.primary ? 'primary' : cal.id;
+        opt.value = cal.id;
         opt.textContent = cal.primary ? `${cal.summary} (ראשי)` : cal.summary;
         selectEl.appendChild(opt);
       });
     this._selectCalendar(prev);
   }
 
+  /** Selects calendar `id`, falling back to the primary calendar (or the first option). */
   _selectCalendar(id) {
     const selectEl = this.els.calendarEl;
-    selectEl.value = [...selectEl.options].some(o => o.value === id) ? id : 'primary';
+    const has = (v) => [...selectEl.options].some(o => o.value === v);
+    selectEl.value = has(id) ? id : has(this.primaryId) ? this.primaryId : selectEl.options[0].value;
   }
 
-  /** @param {Date} dateObj the day to pre-fill */
+  /** Add mode. @param {Date} dateObj the day to pre-fill */
   open(dateObj) {
+    this._setMode(null);
     this.els.titleEl.value = '';
     this._selectCalendar(this.lastCalendarId);
     this.els.dateEl.value = toKey(dateObj);
@@ -87,8 +111,88 @@ export class AddEventDialog {
     this._renderHebDate();
     this._renderRepeatOptions();
     this._syncRepeat();
+    this._syncScope();
     this.els.dialogEl.showModal();
     this.els.titleEl.focus();
+  }
+
+  /**
+   * Edit mode, for an event from EventsStore (see GoogleCalendarService's CalEvent).
+   * The calendar and the repeat rule can't be changed here; for an event that's
+   * part of a series, the user picks whether changes apply to it or to all of it.
+   */
+  openEdit(ev) {
+    this._setMode(ev);
+    const hhmm = (d) => String(d.getHours()).padStart(2, '0') + ':' + String(d.getMinutes()).padStart(2, '0');
+    this.original = {
+      date: toKey(ev.date),
+      allDay: ev.allDay,
+      startTime: ev.allDay ? '09:00' : hhmm(ev.date),
+      endTime: ev.allDay ? '10:00' : hhmm(ev.end),
+    };
+    this.els.titleEl.value = ev.summary;
+    if (![...this.els.calendarEl.options].some(o => o.value === ev.calendarId)) {
+      this.els.calendarEl.add(new Option(ev.calName, ev.calendarId));
+    }
+    this.els.calendarEl.value = ev.calendarId;
+    this.els.dateEl.value = this.original.date;
+    this.els.allDayEl.checked = ev.allDay;
+    this.els.startEl.value = this.original.startTime;
+    this.els.endEl.value = this.original.endTime;
+    this.els.descEl.value = ev.description;
+    this.els.repeatEl.value = 'none';
+    this.els.scopeEl.value = 'one';
+    this._setError('');
+    this._setSaving(false);
+    this._syncTimeRow();
+    this._renderHebDate();
+    this._renderRepeatOptions();
+    this._syncRepeat();
+    this._syncScope();
+    this.els.dialogEl.showModal();
+    this.els.titleEl.focus();
+  }
+
+  /** @param {object|null} ev the event being edited, or null for add mode */
+  _setMode(ev) {
+    const editing = !!ev;
+    this.editing = ev;
+    this.original = null;
+    this.els.headingEl.textContent = editing ? EDIT_HEADING : ADD_HEADING;
+    this.els.calendarEl.disabled = editing;
+    this.els.repeatEl.hidden = editing;
+    this.els.scopeEl.hidden = !(editing && (ev.recurringEventId || ev.seriesId));
+    this.els.deleteBtn.hidden = !editing;
+    this._disarmDelete();
+  }
+
+  /** Which date/time fields are editable, and the note explaining why not. */
+  _syncScope() {
+    const ev = this.editing;
+    let note = '';
+    let lockDate = false, lockTimes = false;
+    if (ev && ev.multiDay) {
+      lockDate = lockTimes = true;
+      note = 'אירוע שנמשך כמה ימים — כאן אפשר לשנות רק את הכותרת והתיאור.';
+    } else if (ev && this.els.scopeEl.value === 'all') {
+      // Every event in the series keeps its own date; only the times can change together.
+      lockDate = true;
+      this.els.dateEl.value = this.original.date;
+      this._renderHebDate();
+      note = 'השינויים יחולו על כל המופעים בסדרה, כל אחד בתאריך שלו.';
+    }
+    this.els.dateEl.disabled = lockDate;
+    this.els.allDayEl.disabled = lockTimes;
+    this.els.startEl.disabled = lockTimes;
+    this.els.endEl.disabled = lockTimes;
+    this.els.noteEl.textContent = note;
+    this.els.noteEl.hidden = !note;
+    this._disarmDelete();
+  }
+
+  _disarmDelete() {
+    this.deleteArmed = false;
+    this.els.deleteBtn.textContent = DELETE_LABEL;
   }
 
   _syncTimeRow() {
@@ -186,10 +290,71 @@ export class AddEventDialog {
 
   _setSaving(saving) {
     this.els.saveBtn.disabled = saving;
+    this.els.deleteBtn.disabled = saving;
     this.els.saveBtn.textContent = saving ? 'שומר…' : 'שמירה';
   }
 
-  async _handleSave() {
+  /** Runs a save/update/delete action with the busy state and error display around it. */
+  async _run(action) {
+    this._setError('');
+    this._setSaving(true);
+    try {
+      await action();
+      this.els.dialogEl.close();
+    } catch (err) {
+      this._setError(err.message);
+    } finally {
+      this._setSaving(false);
+      this._disarmDelete();
+    }
+  }
+
+  // Deleting takes two clicks (instead of a confirm() popup) so the second click
+  // is still a fresh user gesture if Google's permission popup has to open.
+  _handleDelete() {
+    if (!this.deleteArmed) {
+      this.deleteArmed = true;
+      this.els.deleteBtn.textContent = DELETE_CONFIRM_LABEL;
+      return;
+    }
+    const ev = this.editing;
+    const scope = this.els.scopeEl.hidden ? 'one' : this.els.scopeEl.value;
+    this._run(() => this.onDelete(ev, scope));
+  }
+
+  _handleUpdate() {
+    const ev = this.editing;
+    const scope = this.els.scopeEl.hidden ? 'one' : this.els.scopeEl.value;
+    const now = {
+      date: this.els.dateEl.value,
+      allDay: this.els.allDayEl.checked,
+      startTime: this.els.startEl.value,
+      endTime: this.els.endEl.value,
+    };
+    const title = this.els.titleEl.value.trim();
+    if (!title) return this._setError('נא להזין כותרת לאירוע');
+    const o = this.original;
+    const timingChanged = !ev.multiDay && (now.date !== o.date || now.allDay !== o.allDay
+      || (!now.allDay && (now.startTime !== o.startTime || now.endTime !== o.endTime)));
+    if (timingChanged) {
+      if (!now.date) return this._setError('נא לבחור תאריך');
+      if (!now.allDay) {
+        if (!now.startTime || !now.endTime) return this._setError('נא להזין שעת התחלה ושעת סיום');
+        if (now.endTime <= now.startTime) return this._setError('שעת הסיום חייבת להיות אחרי שעת ההתחלה');
+      }
+    }
+    let timing = null;
+    if (timingChanged) {
+      timing = { allDay: now.allDay, startTime: now.startTime, endTime: now.endTime };
+      if (scope === 'one') timing.date = now.date;
+    }
+    const changes = { title, description: this.els.descEl.value.trim(), timing };
+    // onUpdate may open Google's permission popup, so no await before it.
+    this._run(() => this.onUpdate(ev, scope, changes));
+  }
+
+  _handleSave() {
+    if (this.editing) return this._handleUpdate();
     const input = {
       calendarId: this.els.calendarEl.value,
       title: this.els.titleEl.value.trim(),
@@ -208,18 +373,11 @@ export class AddEventDialog {
     }
     if (typeof input.recurrence === 'string') return this._setError(input.recurrence);
 
-    this._setError('');
-    this._setSaving(true);
-    try {
-      // onSave may open Google's permission popup, so it must be called
-      // synchronously here, inside the click handler (no await before it).
+    // onSave may open Google's permission popup, so it must be called
+    // synchronously here, inside the click handler (no await before it).
+    this._run(async () => {
       await this.onSave(input);
       this.lastCalendarId = input.calendarId;
-      this.els.dialogEl.close();
-    } catch (err) {
-      this._setError(err.message);
-    } finally {
-      this._setSaving(false);
-    }
+    });
   }
 }

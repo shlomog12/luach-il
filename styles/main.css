@@ -138,3 +138,10 @@ dialog#locDialog::backdrop, dialog#eventDialog::backdrop{background:rgba(0,0,0,0
 .heb-date-hint{font-size:12px;color:var(--amber);}
 .check-row{display:flex;align-items:center;gap:6px;font-size:13px;color:var(--text-dim);}
 .btn:disabled{opacity:0.6;cursor:default;}
+.btn-danger{color:var(--danger);margin-inline-end:auto;}
+.btn-danger[hidden]{display:none;}
+.form-rows input:disabled{opacity:0.55;}
+button.holiday-tag{font:inherit;font-size:12px;cursor:pointer;}
+button.holiday-tag:hover{border-color:rgba(214,154,76,0.45);}
+button.event-item{width:100%;background:none;border:none;border-bottom:1px solid var(--line);font:inherit;text-align:start;cursor:pointer;}
+button.event-item:hover .etitle{color:var(--amber-bright);}

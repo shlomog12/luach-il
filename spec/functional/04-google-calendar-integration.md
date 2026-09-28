@@ -104,6 +104,43 @@ created directly in their Google Calendar.
   appears in the grid, the day card and the 60-day list exactly as Google
   stored it.
 
+## Editing and deleting an event
+
+- Events the user may change are clickable — in the day-detail card and in
+  the 60-day list — and open the same dialog in edit mode ("עריכת אירוע").
+  Changeable = the calendar is `owner`/`writer` **and** the user is the
+  organizer (or the event allows guests to modify it). Other events (e.g.
+  invitations from others) stay plain text.
+- Title, date, all-day/times and description are pre-filled and editable.
+  The calendar and the repeat rule can't be changed from here.
+- Only fields that changed are sent (`events.patch`): if date/times weren't
+  touched, only title and description are patched, so nothing else about the
+  event is disturbed. `start`/`end` always carry both `date` and `dateTime`
+  (one of them `null`) so an event can switch between all-day and timed.
+- **Multi-day events**: the form only models single-day events, so for these
+  only title and description are editable (date/time fields disabled, with a
+  note).
+- **Events in a series** — an instance of a Google recurring event
+  (`recurringEventId`) or an event of a Hebrew-date series (`luachSeriesId`)
+  — get a scope picker: "רק המופע הזה" (default) or "כל המופעים בסדרה".
+  - *This one*: patch/delete just this event. For a Google recurring event
+    that makes the instance an exception; the rest of the series is untouched.
+  - *All*: the date field is locked (each occurrence keeps its own date); a
+    time change applies to each on its own date. For a Google recurring event
+    the series **master** is fetched and patched on its own (first) date, or
+    deleted. For a Hebrew-date series, all its events are listed via
+    `privateExtendedProperty=luachSeriesId=…` (past and future) and each is
+    patched/deleted (4 in parallel). A partial failure closes the dialog and
+    reports counts, like creation.
+- **Delete** takes two clicks on the same button ("מחיקה" → "לחצו שוב
+  למחיקה"), not a `confirm()` popup, so the confirming click is still a user
+  gesture if Google's permission popup needs to open. A `410 Gone` (already
+  deleted) counts as success.
+- After any change the events are refetched.
+- Event titles come from Google (anyone who invites the user controls them),
+  so they are always HTML-escaped (`utils/html.js`) before going into
+  `innerHTML` — in the grid chips, the day card and the list.
+
 ## Auth control placement and prominence
 
 The auth control (connection status + button) is **not** at the top of the

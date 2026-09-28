@@ -51,13 +51,14 @@
       Google Calendar שלכם — כדי להציג את האירועים שלכם בתוך הלוח.
     </p>
     <p>
-      רק אם תבחרו להוסיף אירוע מתוך האתר, Google יבקש מכם אישור נוסף
-      להרשאת <strong>ניהול אירועים</strong> (<code>calendar.events</code>),
-      שבה האתר משתמש אך ורק כדי ליצור את האירוע שמילאתם, ביומן שבחרתם.
+      רק אם תבחרו להוסיף, לערוך או למחוק אירוע מתוך האתר, Google יבקש מכם
+      אישור נוסף להרשאת <strong>ניהול אירועים</strong> (<code>calendar.events</code>),
+      שבה האתר משתמש אך ורק כדי לבצע את הפעולה שביקשתם.
     </p>
     <ul>
-      <li>האתר <strong>לא</strong> משנה ולא מוחק אירועים קיימים ביומן שלכם, ויוצר
-        אירוע רק כשאתם לוחצים "שמירה" בטופס הוספת האירוע.</li>
+      <li>האתר יוצר, משנה או מוחק אירוע <strong>רק</strong> כשאתם לוחצים על כך
+        בעצמכם ("שמירה" או "מחיקה" בטופס האירוע) — ורק את האירוע (או סדרת
+        האירועים) שבחרתם.</li>
       <li>האירועים שנשלפים מוצגים <strong>רק בדפדפן שלכם</strong> — הם לעולם לא
         נשלחים לשום שרת שלנו (כי אין כזה), ולא משותפים עם אף צד שלישי.</li>
       <li>אסימון ההתחברות (access token) נשמר זמנית בזיכרון הדפדפן
@@ -85,7 +86,7 @@
   <div class="card">
     <h2>שירותי צד שלישי בשימוש</h2>
     <ul>
-      <li><strong>Google Identity Services / Google Calendar API</strong> — לאימות, לשליפת אירועי היומן ולהוספת אירועים שיצרתם, כמתואר למעלה.</li>
+      <li><strong>Google Identity Services / Google Calendar API</strong> — לאימות, לשליפת אירועי היומן ולהוספה, עריכה ומחיקה של אירועים לפי בקשתכם, כמתואר למעלה.</li>
       <li><strong>Open-Meteo</strong> (שירות ציבורי וחינמי) — רק כאשר בוחרים
         "מיקום מותאם אישית", נשלחות אליו הקואורדינטות (קו רוחב/אורך) בלבד
         כדי לחשב גובה מעל פני הים לצורך זמני היום. לא נשלח שום מידע מזהה.</li>
@@ -104,10 +105,9 @@
       web app with no backend server. If you sign in with Google, it requests
       read access to your Google Calendar (<code>calendar.readonly</code>)
       solely to display your events locally in your own browser. Only if you
-      choose to add an event from the site does it ask for the additional
-      <code>calendar.events</code> permission, used solely to create the event
-      you filled in on the calendar you chose — it never modifies or deletes
-      existing events. Your data is never sent to any server or third party. The access token lives only in sessionStorage and is cleared when
+      choose to add, edit or delete an event from the site does it ask for the
+      additional <code>calendar.events</code> permission, used solely to carry
+      out the action you clicked, on the event (or series) you chose. Your data is never sent to any server or third party. The access token lives only in sessionStorage and is cleared when
       you close the tab. A few non-personal preferences (chosen location, view
       mode) are kept in localStorage. Questions: shlomog12@gmail.com
     </div>

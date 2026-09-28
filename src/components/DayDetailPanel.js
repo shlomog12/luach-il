@@ -13,16 +13,19 @@ import { HDate, hebMonthName, heDayStr, gematriya, getDayInfoRange } from '../se
 import { getDailyZmanim } from '../services/ZmanimService.js';
 import { GREG_MONTHS, WEEKDAY_HE } from '../config/constants.js';
 import { toKey, fmtTime } from '../utils/dateFormat.js';
+import { escapeHtml } from '../utils/html.js';
 
 export class DayDetailPanel {
   /**
    * @param {{containerEl: HTMLElement}} els
-   * @param {{onChangeLocationRequested: () => void, onAddEventRequested: (date: Date) => void}} deps
+   * @param {{onChangeLocationRequested: () => void, onAddEventRequested: (date: Date) => void,
+   *   onEventSelected: (ev: object) => void}} deps
    */
-  constructor({ containerEl }, { onChangeLocationRequested, onAddEventRequested }) {
+  constructor({ containerEl }, { onChangeLocationRequested, onAddEventRequested, onEventSelected }) {
     this.containerEl = containerEl;
     this.onChangeLocationRequested = onChangeLocationRequested;
     this.onAddEventRequested = onAddEventRequested;
+    this.onEventSelected = onEventSelected;
     this.connected = false;
     AuthService.onAuthChange((status) => { this.connected = status === true; this.render(); });
     NavStore.onChange(() => this.render());
@@ -54,7 +57,13 @@ export class DayDetailPanel {
       eventsHtml += `<div class="holidays">` + info.holidays.map(h => `<span class="holiday-tag">${h}</span>`).join('') + `</div>`;
     }
     if (dayEvents.length) {
-      eventsHtml += `<div class="holidays">` + dayEvents.map(ev => `<span class="holiday-tag">${ev.allDay ? '' : fmtTime(ev.date) + ' · '}${ev.title}</span>`).join('') + `</div>`;
+      // Events the user can change are buttons that open them for editing/deleting.
+      eventsHtml += `<div class="holidays">` + dayEvents.map((ev, i) => {
+        const label = `${ev.allDay ? '' : fmtTime(ev.date) + ' · '}${escapeHtml(ev.title)}`;
+        return ev.editable
+          ? `<button class="holiday-tag" type="button" data-ev="${i}" title="עריכה או מחיקה">${label}</button>`
+          : `<span class="holiday-tag">${label}</span>`;
+      }).join('') + `</div>`;
     }
     if (!eventsHtml) {
       eventsHtml = `<div class="events-empty">אין אירועים או חגים ביום זה.</div>`;
@@ -95,5 +104,7 @@ export class DayDetailPanel {
     // rather than once — main.js wires onChangeLocationRequested to LocationDialog.open().
     this.containerEl.querySelector('#locBtn').addEventListener('click', () => this.onChangeLocationRequested());
     this.containerEl.querySelector('#addEventBtn')?.addEventListener('click', () => this.onAddEventRequested(dateObj));
+    this.containerEl.querySelectorAll('[data-ev]').forEach(btn =>
+      btn.addEventListener('click', () => this.onEventSelected(dayEvents[Number(btn.dataset.ev)])));
   }
 }
