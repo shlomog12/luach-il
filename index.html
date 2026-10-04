@@ -108,14 +108,18 @@
       <input type="text" id="evTitle" placeholder="כותרת האירוע" maxlength="200">
       <select id="evCalendar" aria-label="יומן"><option value="primary">היומן הראשי</option></select>
       <div class="form-row">
-        <input type="date" id="evDate" aria-label="תאריך">
+        <span class="dt-label">התחלה</span>
+        <input type="date" id="evDate" aria-label="תאריך התחלה">
+        <input type="time" id="evStart" aria-label="שעת התחלה">
         <span class="heb-date-hint" id="evHebDate"></span>
       </div>
-      <label class="check-row"><input type="checkbox" id="evAllDay"> כל היום</label>
-      <div class="form-row" id="evTimeRow">
-        <label>מ-<input type="time" id="evStart"></label>
-        <label>עד<input type="time" id="evEnd"></label>
+      <div class="form-row">
+        <span class="dt-label">סיום</span>
+        <input type="date" id="evEndDate" aria-label="תאריך סיום">
+        <input type="time" id="evEnd" aria-label="שעת סיום">
+        <span class="heb-date-hint" id="evHebEndDate"></span>
       </div>
+      <label class="check-row"><input type="checkbox" id="evAllDay"> כל היום</label>
       <select id="evRepeat" aria-label="חזרה"></select>
       <div class="form-row" id="evRepeatEndRow" hidden>
         <select id="evRepeatEnd" aria-label="סיום החזרה">

@@ -12,7 +12,7 @@ import * as AuthService from '../services/GoogleAuthService.js';
 import { HDate, hebMonthName, heDayStr, gematriya, getDayInfoRange } from '../services/HebrewCalendarService.js';
 import { getDailyZmanim } from '../services/ZmanimService.js';
 import { GREG_MONTHS, WEEKDAY_HE } from '../config/constants.js';
-import { toKey, fmtTime } from '../utils/dateFormat.js';
+import { toKey, fmtTime, fmtEventRange } from '../utils/dateFormat.js';
 import { escapeHtml } from '../utils/html.js';
 
 export class DayDetailPanel {
@@ -59,7 +59,8 @@ export class DayDetailPanel {
     if (dayEvents.length) {
       // Events the user can change are buttons that open them for editing/deleting.
       eventsHtml += `<div class="holidays">` + dayEvents.map((ev, i) => {
-        const label = `${ev.allDay ? '' : fmtTime(ev.date) + ' · '}${escapeHtml(ev.title)}`;
+        const when = ev.multiDay ? fmtEventRange(ev) + ' · ' : ev.allDay ? '' : fmtTime(ev.date) + ' · ';
+        const label = `${when}${escapeHtml(ev.title)}`;
         return ev.editable
           ? `<button class="holiday-tag" type="button" data-ev="${i}" title="עריכה או מחיקה">${label}</button>`
           : `<span class="holiday-tag">${label}</span>`;

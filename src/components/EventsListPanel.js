@@ -4,7 +4,7 @@
 
 import * as EventsStore from '../state/EventsStore.js';
 import { GREG_MONTHS_SHORT } from '../config/constants.js';
-import { fmtTime } from '../utils/dateFormat.js';
+import { fmtTime, fmtEventRange } from '../utils/dateFormat.js';
 import { escapeHtml } from '../utils/html.js';
 
 export class EventsListPanel {
@@ -38,7 +38,7 @@ export class EventsListPanel {
       const d = ev.date;
       const dateStr = `${d.getDate()} ${GREG_MONTHS_SHORT[d.getMonth()]}`;
       const timeStr = ev.allDay ? '' : `, ${fmtTime(d)}`;
-      const inner = `<span class="edate">${dateStr}${timeStr}</span><span class="etitle">${escapeHtml(ev.title)}</span>`;
+      const inner = `<span class="edate">${ev.multiDay ? fmtEventRange(ev) : dateStr + timeStr}</span><span class="etitle">${escapeHtml(ev.title)}</span>`;
       return ev.editable
         ? `<button class="event-item" type="button" data-ev="${i}" title="עריכה או מחיקה">${inner}</button>`
         : `<div class="event-item">${inner}</div>`;

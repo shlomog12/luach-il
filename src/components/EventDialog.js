@@ -1,11 +1,11 @@
-// The event dialog: a small form (title, target calendar, date, all-day or
-// start/end time, repeat, description) used both to add an event (open) and to
+// The event dialog: a small form (title, target calendar, start and end date
+// and time or all-day, repeat, description) used both to add an event (open) and to
 // edit or delete an existing one (openEdit). Hands the result to onSave /
 // onUpdate / onDelete. Doesn't know about Google at all — main.js wires those
 // to GoogleAuthService + GoogleCalendarService.
 
 import { HDate, hebMonthName, heDayStr, gematriya, hebrewRecurrenceDates, HEB_RECURRENCE_MAX } from '../services/HebrewCalendarService.js';
-import { toKey, fromKey } from '../utils/dateFormat.js';
+import { toKey, fromKey, addDaysKey, daysBetweenKeys } from '../utils/dateFormat.js';
 import { GREG_MONTHS, WEEKDAY_HE } from '../config/constants.js';
 
 const HEB_FREQS = ['hyearly', 'hmonthly'];
@@ -16,18 +16,22 @@ const ADD_HEADING = 'הוספת אירוע ליומן Google';
 const EDIT_HEADING = 'עריכת אירוע';
 const DELETE_LABEL = 'מחיקה';
 const DELETE_CONFIRM_LABEL = 'לחצו שוב למחיקה';
+const HOUR_MS = 3600000;
+
+const hhmm = (d) => String(d.getHours()).padStart(2, '0') + ':' + String(d.getMinutes()).padStart(2, '0');
 
 export class EventDialog {
   /**
-   * @param {{dialogEl, headingEl, scopeEl, noteEl, deleteBtn, titleEl, calendarEl, dateEl, hebDateEl, allDayEl, timeRowEl, startEl, endEl,
+   * @param {{dialogEl, headingEl, scopeEl, noteEl, deleteBtn, titleEl, calendarEl, dateEl, hebDateEl, endDateEl, hebEndDateEl, allDayEl, startEl, endEl,
    *   repeatEl, repeatEndRowEl, repeatEndEl, repeatCountEl, repeatUntilEl, repeatHintEl,
    *   descEl, errEl, cancelBtn, saveBtn}} els
-   * @param {{onSave: (input: {calendarId: string, title: string, date: string, allDay: boolean, startTime: string, endTime: string,
+   * @param {{onSave: (input: {calendarId: string, title: string, date: string, endDate: string, allDay: boolean, startTime: string, endTime: string,
    *   description: string, recurrence: null | {freq: string, count?: number, until?: string}}) => Promise<void>}} deps
    *   freq: 'daily'|'weekly'|'monthly'|'yearly' (Gregorian) or 'hyearly'|'hmonthly' (Hebrew date)
    * @param {(ev: object, scope: 'one'|'all', changes: {title: string, description: string,
-   *   timing: null | {date?: string, allDay: boolean, startTime: string, endTime: string}}) => Promise<void>} deps.onUpdate
-   *   timing null = date/times unchanged; no timing.date = keep each event's own date (scope 'all')
+   *   timing: null | {date?: string, spanDays: number, allDay: boolean, startTime: string, endTime: string}}) => Promise<void>} deps.onUpdate
+   *   timing null = date/times unchanged; no timing.date = keep each event's own date (scope 'all');
+   *   spanDays = days from the start date to the end date
    * @param {(ev: object, scope: 'one'|'all') => Promise<void>} deps.onDelete
    */
   constructor(els, { onSave, onUpdate, onDelete }) {
@@ -42,21 +46,25 @@ export class EventDialog {
     this.editing = null;
     this.original = null;
     this.deleteArmed = false;
+    /** The event's length, kept as the start moves (like Google): in ms for timed events, in days for all-day ones. */
+    this.durationMs = HOUR_MS;
+    this.spanDays = 0;
 
     this.els.scopeEl.addEventListener('change', () => this._syncScope());
     this.els.deleteBtn.addEventListener('click', () => this._handleDelete());
 
-    this.els.allDayEl.addEventListener('change', () => this._syncTimeRow());
-    this.els.dateEl.addEventListener('input', () => { this._renderHebDate(); this._renderRepeatOptions(); this._syncRepeat(); });
+    this.els.allDayEl.addEventListener('change', () => { this._syncTimeRow(); this._rememberDuration(); });
+    this.els.dateEl.addEventListener('change', () => {
+      this._moveEndWithStart();
+      this._renderHebDate(); this._renderRepeatOptions(); this._syncRepeat();
+    });
+    this.els.startEl.addEventListener('change', () => this._moveEndWithStart());
+    this.els.endDateEl.addEventListener('change', () => { this._rememberDuration(); this._renderHebDate(); });
+    this.els.endEl.addEventListener('change', () => this._rememberDuration());
     this.els.repeatEl.addEventListener('change', () => this._syncRepeat());
     this.els.repeatEndEl.addEventListener('change', () => this._syncRepeat());
     this.els.repeatCountEl.addEventListener('input', () => this._renderRepeatHint());
     this.els.repeatUntilEl.addEventListener('input', () => this._renderRepeatHint());
-    // Keep the event one hour long by default as the start time moves.
-    this.els.startEl.addEventListener('change', () => {
-      const [h, m] = this.els.startEl.value.split(':').map(Number);
-      if (!isNaN(h)) this.els.endEl.value = String(Math.min(h + 1, 23)).padStart(2, '0') + ':' + String(m).padStart(2, '0');
-    });
     this.els.cancelBtn.addEventListener('click', () => this.els.dialogEl.close());
     this.els.saveBtn.addEventListener('click', () => this._handleSave());
   }
@@ -97,6 +105,7 @@ export class EventDialog {
     this.els.titleEl.value = '';
     this._selectCalendar(this.lastCalendarId);
     this.els.dateEl.value = toKey(dateObj);
+    this.els.endDateEl.value = toKey(dateObj);
     this.els.allDayEl.checked = false;
     this.els.startEl.value = '09:00';
     this.els.endEl.value = '10:00';
@@ -105,6 +114,8 @@ export class EventDialog {
     this.els.repeatEndEl.value = 'never';
     this.els.repeatCountEl.value = String(DEFAULT_REPEAT_COUNT);
     this.els.repeatUntilEl.value = '';
+    this.durationMs = HOUR_MS;
+    this._rememberDuration();
     this._setError('');
     this._setSaving(false);
     this._syncTimeRow();
@@ -123,9 +134,10 @@ export class EventDialog {
    */
   openEdit(ev) {
     this._setMode(ev);
-    const hhmm = (d) => String(d.getHours()).padStart(2, '0') + ':' + String(d.getMinutes()).padStart(2, '0');
     this.original = {
       date: toKey(ev.date),
+      // All-day ends are exclusive (the day after the last day); the form shows the last day.
+      endDate: ev.allDay ? addDaysKey(toKey(ev.end), -1) : toKey(ev.end),
       allDay: ev.allDay,
       startTime: ev.allDay ? '09:00' : hhmm(ev.date),
       endTime: ev.allDay ? '10:00' : hhmm(ev.end),
@@ -136,12 +148,15 @@ export class EventDialog {
     }
     this.els.calendarEl.value = ev.calendarId;
     this.els.dateEl.value = this.original.date;
+    this.els.endDateEl.value = this.original.endDate;
     this.els.allDayEl.checked = ev.allDay;
     this.els.startEl.value = this.original.startTime;
     this.els.endEl.value = this.original.endTime;
     this.els.descEl.value = ev.description;
     this.els.repeatEl.value = 'none';
     this.els.scopeEl.value = 'one';
+    this.durationMs = HOUR_MS;
+    this._rememberDuration();
     this._setError('');
     this._setSaving(false);
     this._syncTimeRow();
@@ -170,21 +185,18 @@ export class EventDialog {
   _syncScope() {
     const ev = this.editing;
     let note = '';
-    let lockDate = false, lockTimes = false;
-    if (ev && ev.multiDay) {
-      lockDate = lockTimes = true;
-      note = 'אירוע שנמשך כמה ימים — כאן אפשר לשנות רק את הכותרת והתיאור.';
-    } else if (ev && this.els.scopeEl.value === 'all') {
-      // Every event in the series keeps its own date; only the times can change together.
-      lockDate = true;
+    let lockDates = false;
+    if (ev && this.els.scopeEl.value === 'all') {
+      // Every event in the series keeps its own dates; only the times can change together.
+      lockDates = true;
       this.els.dateEl.value = this.original.date;
+      this.els.endDateEl.value = this.original.endDate;
+      this._rememberDuration();
       this._renderHebDate();
       note = 'השינויים יחולו על כל המופעים בסדרה, כל אחד בתאריך שלו.';
     }
-    this.els.dateEl.disabled = lockDate;
-    this.els.allDayEl.disabled = lockTimes;
-    this.els.startEl.disabled = lockTimes;
-    this.els.endEl.disabled = lockTimes;
+    this.els.dateEl.disabled = lockDates;
+    this.els.endDateEl.disabled = lockDates;
     this.els.noteEl.textContent = note;
     this.els.noteEl.hidden = !note;
     this._disarmDelete();
@@ -196,14 +208,65 @@ export class EventDialog {
   }
 
   _syncTimeRow() {
-    this.els.timeRowEl.hidden = this.els.allDayEl.checked;
+    this.els.startEl.hidden = this.els.endEl.hidden = this.els.allDayEl.checked;
   }
 
+  /** Start/end as local Dates from the fields (times ignored when all-day); null if incomplete. */
+  _fieldsDate(dateEl, timeEl) {
+    const d = fromKey(dateEl.value);
+    if (!d || this.els.allDayEl.checked) return d;
+    const [h, m] = timeEl.value.split(':').map(Number);
+    if (isNaN(h)) return null;
+    d.setHours(h, m);
+    return d;
+  }
+
+  /** Records the current length, so moving the start keeps it (only a valid, non-negative one). */
+  _rememberDuration() {
+    const start = this._fieldsDate(this.els.dateEl, this.els.startEl);
+    const end = this._fieldsDate(this.els.endDateEl, this.els.endEl);
+    if (!start || !end || end < start) return;
+    this.spanDays = daysBetweenKeys(this.els.dateEl.value, this.els.endDateEl.value);
+    if (!this.els.allDayEl.checked) this.durationMs = end - start;
+  }
+
+  /** The start moved: move the end with it, keeping the event's length. */
+  _moveEndWithStart() {
+    if (this.els.allDayEl.checked) {
+      if (this.els.dateEl.value) this.els.endDateEl.value = addDaysKey(this.els.dateEl.value, this.spanDays);
+    } else {
+      const start = this._fieldsDate(this.els.dateEl, this.els.startEl);
+      if (start) {
+        const end = new Date(start.getTime() + this.durationMs);
+        this.els.endDateEl.value = toKey(end);
+        this.els.endEl.value = hhmm(end);
+      }
+    }
+    this._renderHebDate();
+  }
+
+  /** The Hebrew date next to both the start and the end date. */
   _renderHebDate() {
-    const date = fromKey(this.els.dateEl.value);
-    if (!date) { this.els.hebDateEl.textContent = ''; return; }
-    const hd = new HDate(date);
-    this.els.hebDateEl.textContent = `${heDayStr(hd.getDate())} ב${hebMonthName(hd)} ${gematriya(hd.getFullYear())}`;
+    const heb = (key) => {
+      const date = fromKey(key);
+      if (!date) return '';
+      const hd = new HDate(date);
+      return `${heDayStr(hd.getDate())} ב${hebMonthName(hd)} ${gematriya(hd.getFullYear())}`;
+    };
+    this.els.hebDateEl.textContent = heb(this.els.dateEl.value);
+    this.els.hebEndDateEl.textContent = heb(this.els.endDateEl.value);
+  }
+
+  /** @returns {string} a validation error for the start/end fields, or '' */
+  _timingError(t) {
+    if (!t.date || !t.endDate) return 'נא לבחור תאריך התחלה ותאריך סיום';
+    if (t.allDay) {
+      if (t.endDate < t.date) return 'תאריך הסיום חייב להיות באותו יום או אחרי תאריך ההתחלה';
+      return '';
+    }
+    if (!t.startTime || !t.endTime) return 'נא להזין שעת התחלה ושעת סיום';
+    if (`${t.endDate}T${t.endTime}` <= `${t.date}T${t.startTime}`) return 'מועד הסיום חייב להיות אחרי מועד ההתחלה';
+    return '';
   }
 
   /** Rebuilds the repeat choices so their labels name the chosen date's weekday/day/month. */
@@ -327,6 +390,7 @@ export class EventDialog {
     const scope = this.els.scopeEl.hidden ? 'one' : this.els.scopeEl.value;
     const now = {
       date: this.els.dateEl.value,
+      endDate: this.els.endDateEl.value,
       allDay: this.els.allDayEl.checked,
       startTime: this.els.startEl.value,
       endTime: this.els.endEl.value,
@@ -334,18 +398,16 @@ export class EventDialog {
     const title = this.els.titleEl.value.trim();
     if (!title) return this._setError('נא להזין כותרת לאירוע');
     const o = this.original;
-    const timingChanged = !ev.multiDay && (now.date !== o.date || now.allDay !== o.allDay
-      || (!now.allDay && (now.startTime !== o.startTime || now.endTime !== o.endTime)));
-    if (timingChanged) {
-      if (!now.date) return this._setError('נא לבחור תאריך');
-      if (!now.allDay) {
-        if (!now.startTime || !now.endTime) return this._setError('נא להזין שעת התחלה ושעת סיום');
-        if (now.endTime <= now.startTime) return this._setError('שעת הסיום חייבת להיות אחרי שעת ההתחלה');
-      }
-    }
+    const timingChanged = now.date !== o.date || now.endDate !== o.endDate || now.allDay !== o.allDay
+      || (!now.allDay && (now.startTime !== o.startTime || now.endTime !== o.endTime));
     let timing = null;
     if (timingChanged) {
-      timing = { allDay: now.allDay, startTime: now.startTime, endTime: now.endTime };
+      const err = this._timingError(now);
+      if (err) return this._setError(err);
+      timing = {
+        allDay: now.allDay, startTime: now.startTime, endTime: now.endTime,
+        spanDays: daysBetweenKeys(now.date, now.endDate),
+      };
       if (scope === 'one') timing.date = now.date;
     }
     const changes = { title, description: this.els.descEl.value.trim(), timing };
@@ -359,6 +421,7 @@ export class EventDialog {
       calendarId: this.els.calendarEl.value,
       title: this.els.titleEl.value.trim(),
       date: this.els.dateEl.value,
+      endDate: this.els.endDateEl.value,
       allDay: this.els.allDayEl.checked,
       startTime: this.els.startEl.value,
       endTime: this.els.endEl.value,
@@ -366,11 +429,8 @@ export class EventDialog {
       recurrence: this._readRecurrence(),
     };
     if (!input.title) return this._setError('נא להזין כותרת לאירוע');
-    if (!input.date) return this._setError('נא לבחור תאריך');
-    if (!input.allDay) {
-      if (!input.startTime || !input.endTime) return this._setError('נא להזין שעת התחלה ושעת סיום');
-      if (input.endTime <= input.startTime) return this._setError('שעת הסיום חייבת להיות אחרי שעת ההתחלה');
-    }
+    const timingErr = this._timingError(input);
+    if (timingErr) return this._setError(timingErr);
     if (typeof input.recurrence === 'string') return this._setError(input.recurrence);
 
     // onSave may open Google's permission popup, so it must be called

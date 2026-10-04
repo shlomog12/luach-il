@@ -2,7 +2,7 @@
 // token was obtained (GoogleAuthService) or where the results get stored
 // (EventsStore) — those are wired together in main.js.
 
-import { toKey, fromKey } from '../utils/dateFormat.js';
+import { toKey, fromKey, addDaysKey, daysBetweenKeys } from '../utils/dateFormat.js';
 
 const API = 'https://www.googleapis.com/calendar/v3';
 const eventsUrl = (calendarId) => `${API}/calendars/${encodeURIComponent(calendarId)}/events`;
@@ -69,7 +69,7 @@ export async function fetchUpcomingEvents(accessToken, daysAhead, calendars) {
  * @property {string} summary          raw title, as stored in Google
  * @property {string} description
  * @property {boolean} allDay
- * @property {boolean} multiDay        spans more than one day (the form can't edit its times)
+ * @property {boolean} multiDay        spans more than one day
  * @property {string} calName
  * @property {boolean} editable        the user may change it (writable calendar, and organizer or guests-can-modify)
  * @property {string|null} recurringEventId  set on instances of a Google recurring event
@@ -103,18 +103,18 @@ function toCalEvent(ev, cal) {
  * Creates an event on the given calendar (default: primary). Dates/times are the
  * wall-clock values the user typed, interpreted in the browser's time zone.
  * @param {string} accessToken
- * @param {{calendarId?: string, title: string, date: string, allDay: boolean, startTime?: string, endTime?: string, description?: string, recurrence?: GregRecurrence, seriesId?: string}} input
- *   date: 'YYYY-MM-DD'; startTime/endTime: 'HH:MM' (required unless allDay);
+ * @param {{calendarId?: string, title: string, date: string, endDate?: string, allDay: boolean, startTime?: string, endTime?: string, description?: string, recurrence?: GregRecurrence, seriesId?: string}} input
+ *   date/endDate: 'YYYY-MM-DD', endDate inclusive (default: date); startTime/endTime: 'HH:MM' (required unless allDay);
  *   recurrence makes it a recurring Google event; seriesId tags one event of a
  *   createEventSeries() batch
  * @returns {Promise<object>} the created Google Calendar event resource
  */
-export async function createEvent(accessToken, { calendarId = 'primary', title, date, allDay, startTime, endTime, description, recurrence, seriesId }) {
+export async function createEvent(accessToken, { calendarId = 'primary', title, date, endDate, allDay, startTime, endTime, description, recurrence, seriesId }) {
   const body = { summary: title };
   if (description) body.description = description;
   if (recurrence) body.recurrence = [toRRule(recurrence, allDay)];
   if (seriesId) body.extendedProperties = { private: { luachSeriesId: seriesId } };
-  Object.assign(body, toStartEnd({ date, allDay, startTime, endTime }));
+  Object.assign(body, toStartEnd({ date, endDate, allDay, startTime, endTime }));
 
   const res = await fetch(eventsUrl(calendarId), {
     method: 'POST',
@@ -126,16 +126,16 @@ export async function createEvent(accessToken, { calendarId = 'primary', title, 
 }
 
 /**
- * start/end for a single-day event. Both date and dateTime are always sent
- * (one of them null) so a PATCH can switch an event between all-day and timed.
+ * start/end for an event from `date` to `endDate` (inclusive; default: same day).
+ * Both date and dateTime are always sent (one of them null) so a PATCH can
+ * switch an event between all-day and timed.
  */
-function toStartEnd({ date, allDay, startTime, endTime }) {
+function toStartEnd({ date, endDate = date, allDay, startTime, endTime }) {
   if (allDay) {
-    // All-day end dates are exclusive in the Calendar API — a one-day event ends the next day.
-    const d = fromKey(date);
+    // All-day end dates are exclusive in the Calendar API — an event ends the day after its last day.
     return {
       start: { date, dateTime: null, timeZone: null },
-      end: { date: toKey(new Date(d.getFullYear(), d.getMonth(), d.getDate() + 1)), dateTime: null, timeZone: null },
+      end: { date: addDaysKey(endDate, 1), dateTime: null, timeZone: null },
     };
   }
   // No offset in dateTime: the API interprets it in the explicit timeZone, which
@@ -143,7 +143,7 @@ function toStartEnd({ date, allDay, startTime, endTime }) {
   const timeZone = Intl.DateTimeFormat().resolvedOptions().timeZone;
   return {
     start: { date: null, dateTime: `${date}T${startTime}:00`, timeZone },
-    end: { date: null, dateTime: `${date}T${endTime}:00`, timeZone },
+    end: { date: null, dateTime: `${endDate}T${endTime}:00`, timeZone },
   };
 }
 
@@ -179,13 +179,16 @@ function toRRule({ freq, count, until }, allDay) {
  * express, like by Hebrew date), all tagged with a shared series id. A few
  * requests run in parallel to stay well under the API's rate limits.
  * @param {string} accessToken
- * @param {object} input same as createEvent's, minus date/recurrence
+ * @param {object} input same as createEvent's, minus recurrence; its date/endDate
+ *   give each event's length, the dates below where each one starts
  * @param {string[]} dates 'YYYY-MM-DD' each
  * @returns {Promise<{created: number, failed: number}>}
  */
 export async function createEventSeries(accessToken, input, dates) {
   const seriesId = Date.now().toString(36) + Math.random().toString(36).slice(2, 8);
-  const { done, failed } = await runPool(dates, date => createEvent(accessToken, { ...input, date, seriesId }));
+  const spanDays = input.endDate ? daysBetweenKeys(input.date, input.endDate) : 0;
+  const { done, failed } = await runPool(dates, date =>
+    createEvent(accessToken, { ...input, date, endDate: addDaysKey(date, spanDays), seriesId }));
   return { created: done, failed };
 }
 
@@ -231,15 +234,19 @@ async function listSeries(accessToken, calendarId, seriesId) {
  * @typedef {object} EventChanges
  * @property {string} title
  * @property {string} description
- * @property {null | {date?: string, allDay: boolean, startTime?: string, endTime?: string}} timing
+ * @property {null | {date?: string, spanDays: number, allDay: boolean, startTime?: string, endTime?: string}} timing
  *   null = keep date/times as they are. No `date` = keep each event's own date
- *   (used when changing a whole series).
+ *   (used when changing a whole series). spanDays = days from the start date
+ *   to the end date (0 = ends the same day).
  */
 
 /** @param {string} eventDate the event's own date, used when timing has no date */
 function patchBody(eventDate, { title, description, timing }) {
   const body = { summary: title, description };
-  if (timing) Object.assign(body, toStartEnd({ ...timing, date: timing.date || eventDate }));
+  if (timing) {
+    const date = timing.date || eventDate;
+    Object.assign(body, toStartEnd({ ...timing, date, endDate: addDaysKey(date, timing.spanDays) }));
+  }
   return body;
 }
 
