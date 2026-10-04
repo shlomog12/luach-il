@@ -53,13 +53,13 @@ created directly in their Google Calendar.
 2. **Day-detail card**: all of that specific day's events, with time (if not
    "all day") and full title — always visible (not collapsed), part of the
    "day's events" block alongside holidays/parsha.
+3. **"Events in Google Calendar" card (next 60 days)**: a full,
+   chronologically sorted list, inside a `<details>` **collapsed by
+   default**.
 
 In both the grid and the day-detail card, a multi-day event appears on
 **every day it overlaps** (Google's end is exclusive, so an all-day event
 ending on the 20th shows through the 19th), not only on its start day.
-3. **"Events in Google Calendar" card (next 60 days)**: a full,
-   chronologically sorted list, inside a `<details>` **collapsed by
-   default**.
 
 ## Adding an event
 
