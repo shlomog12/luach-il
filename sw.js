@@ -1,4 +1,4 @@
-const CACHE = 'luach-v8';
+const CACHE = 'luach-v9';
 const ASSETS = [
   './', './index.html', './manifest.json', './icon.svg', './privacy.html',
   './icon-180.png', './icon-192.png', './icon-512.png', './favicon-32.png',

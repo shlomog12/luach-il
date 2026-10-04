@@ -46,7 +46,7 @@ export class DayDetailPanel {
     html += `<div class="dsub">${heDayStr(hd.getDate())} ב${hebMonthName(hd)} ${gematriya(hd.getFullYear())}</div>`;
 
     const info = getDayInfoRange(dateObj, dateObj, toKey).get(key) || { holidays: [], parsha: null };
-    const dayEvents = EventsStore.getEvents().filter(ev => toKey(ev.date) === key);
+    const dayEvents = EventsStore.getEventsOn(dateObj);
 
     // --- This day's events/holidays: the thing you actually clicked for, always visible ---
     let eventsHtml = '';

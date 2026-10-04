@@ -66,7 +66,7 @@ export class CalendarGrid {
     const key = toKey(dateObj);
     const isShabbat = dateObj.getDay() === 6;
     const info = this.dayInfo.get(key) || { holidays: [], parsha: null };
-    const dayEvents = EventsStore.getEvents().filter(ev => toKey(ev.date) === key);
+    const dayEvents = EventsStore.getEventsOn(dateObj);
 
     const cell = document.createElement('div');
     cell.className = 'cell';
